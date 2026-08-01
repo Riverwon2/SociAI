@@ -8,10 +8,9 @@ import {
   type MutableRefObject
 } from 'react'
 import type { AgentEvent, DemoScenarioFixture, InitialRequest } from '@30-minute-exchange/contracts'
-import { replayInSequence } from '@30-minute-exchange/event-stream'
 
 import { buildFixtureEvents } from './demo/fixture-events.js'
-import { ParticipantDemo } from './demo/ParticipantDemo.js'
+import { ParticipantDemo, type FixtureReplayDecision } from './demo/ParticipantDemo.js'
 import { deriveParticipantDemoView } from './demo/participant-demo-model.js'
 import { demoScenarios, getDemoScenario } from './demo/scenarios.js'
 import {
@@ -71,20 +70,32 @@ function MainApp({
     checkpoint === null ? createInitialRunState() : restoreLiveRunState(checkpoint)
   )
   const [replayItems, setReplayItems] = useState<readonly AgentEvent[] | null>(null)
+  const [replayCursor, setReplayCursor] = useState(0)
+  const [replayFeedback, setReplayFeedback] = useState<string | null>(null)
   const [executionMode, setExecutionMode] = useState<'live' | 'replay'>(
     restoredCheckpoint === null ? 'replay' : 'live'
   )
   const liveConnections = useRef<LiveRunConnections | null>(null)
 
+  const pendingReplayDecision = useMemo(
+    () => fixtureDecisionForEvent(replayItems?.[replayCursor]),
+    [replayCursor, replayItems]
+  )
+
   useEffect(() => {
-    if (replayItems === null) return
-    const replay = replayInSequence({
-      items: replayItems,
-      intervalMs: replayIntervalMs,
-      onItem: (item) => dispatch({ type: 'agent.received', value: item })
-    })
-    return () => replay.cancel()
-  }, [replayIntervalMs, replayItems])
+    if (replayItems === null || pendingReplayDecision !== null) return
+    const item = replayItems[replayCursor]
+    if (item === undefined) return
+    const timer = window.setTimeout(
+      () => {
+        if (item.type === 'outreach.sent') setReplayFeedback(null)
+        dispatch({ type: 'agent.received', value: item })
+        setReplayCursor((current) => (current === replayCursor ? current + 1 : current))
+      },
+      Math.max(0, replayIntervalMs)
+    )
+    return () => window.clearTimeout(timer)
+  }, [pendingReplayDecision, replayCursor, replayIntervalMs, replayItems])
 
   useRawEventPublisher(run)
 
@@ -134,6 +145,8 @@ function MainApp({
         scenario: scenario.fixture
       })
       setReplayItems(events)
+      setReplayCursor(0)
+      setReplayFeedback(null)
     } catch {
       dispatch({ type: 'run.failed', message: '데모 실행을 준비하지 못했습니다.' })
     }
@@ -144,7 +157,22 @@ function MainApp({
     liveConnections.current = null
     checkpointStore?.clear()
     setReplayItems(null)
+    setReplayCursor(0)
+    setReplayFeedback(null)
     dispatch({ type: 'run.reset' })
+  }
+
+  const respondToFixture = (decision: FixtureReplayDecision) => {
+    if (replayItems === null || pendingReplayDecision === null) return
+    if (decision !== pendingReplayDecision) {
+      setReplayFeedback(fixtureMismatchMessage(pendingReplayDecision))
+      return
+    }
+    const responseEvent = replayItems[replayCursor]
+    if (responseEvent === undefined) return
+    dispatch({ type: 'agent.received', value: responseEvent })
+    setReplayCursor((current) => current + 1)
+    setReplayFeedback(null)
   }
 
   const submit = (request: InitialRequest) => {
@@ -170,7 +198,13 @@ function MainApp({
             onSubmitRequest={submit}
           />
         ) : (
-          <RunWorkspace run={run} onReset={reset} />
+          <RunWorkspace
+            run={run}
+            pendingReplayDecision={pendingReplayDecision}
+            replayFeedback={replayFeedback}
+            onFixtureDecision={respondToFixture}
+            onReset={reset}
+          />
         )}
       </main>
       <SiteFooter />
@@ -292,10 +326,23 @@ function SiteHeader({ onOpenRaw }: { readonly onOpenRaw: () => void }) {
   )
 }
 
-function RunWorkspace({ run, onReset }: { readonly run: RunState; readonly onReset: () => void }) {
+function RunWorkspace({
+  run,
+  pendingReplayDecision,
+  replayFeedback,
+  onFixtureDecision,
+  onReset
+}: {
+  readonly run: RunState
+  readonly pendingReplayDecision: FixtureReplayDecision | null
+  readonly replayFeedback: string | null
+  readonly onFixtureDecision: (decision: FixtureReplayDecision) => void
+  readonly onReset: () => void
+}) {
   const tasks = useMemo(() => deriveTaskViews(run.normalized), [run.normalized])
   const participantView = useMemo(() => deriveParticipantDemoView(run), [run])
   const [missionCompleted, setMissionCompleted] = useState(false)
+  const [thanksMessage, setThanksMessage] = useState<string | null>(null)
   const expectedCount =
     run.scenario?.expectedEventTypes.length ??
     (run.result === null ? run.normalized.items.length + 1 : run.normalized.items.length)
@@ -307,8 +354,13 @@ function RunWorkspace({ run, onReset }: { readonly run: RunState; readonly onRes
       <ParticipantDemo
         view={participantView}
         mode={run.mode}
+        pendingReplayDecision={pendingReplayDecision}
+        replayFeedback={replayFeedback}
+        onFixtureDecision={onFixtureDecision}
         missionCompleted={missionCompleted}
         onMissionComplete={() => setMissionCompleted(true)}
+        thanksMessage={thanksMessage}
+        onSendThanks={setThanksMessage}
         onReset={onReset}
       />
 
@@ -378,6 +430,19 @@ function RunWorkspace({ run, onReset }: { readonly run: RunState; readonly onRes
       </details>
     </div>
   )
+}
+
+function fixtureDecisionForEvent(event: AgentEvent | undefined): FixtureReplayDecision | null {
+  if (event?.type === 'outreach.timed_out') return 'timed_out'
+  if (event?.type !== 'neighbor.replied') return null
+  return event.data.response === 'accepted' ? 'accepted' : 'rejected'
+}
+
+function fixtureMismatchMessage(expected: FixtureReplayDecision) {
+  let label = '응답 시간 넘기기'
+  if (expected === 'accepted') label = '수락'
+  if (expected === 'rejected') label = '거절'
+  return `이 fixture에는 ${label} 응답이 기록되어 있어요. ${label}을 눌러 다음 장면을 확인해 주세요.`
 }
 
 function RunDiagnostics({ run }: { readonly run: RunState }) {

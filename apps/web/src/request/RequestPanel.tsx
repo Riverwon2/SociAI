@@ -178,45 +178,7 @@ export function RequestPanel({
               required
             />
           </label>
-          <label className="field">
-            <span>최대 활동 시간</span>
-            <span className="input-with-unit">
-              <input
-                aria-label="최대 활동 시간"
-                type="number"
-                min="1"
-                max="30"
-                value={fields.maxDuration}
-                onChange={(event) => update('maxDuration', event.target.value)}
-                required
-              />
-              <b>분</b>
-            </span>
-          </label>
-          <label className="field">
-            <span>비용 및 결제</span>
-            <span className="fixed-value">무료 · 결제 없음</span>
-          </label>
         </div>
-
-        <fieldset className="fallback-options">
-          <legend>실패 시 미리 허용할 범위</legend>
-          <Toggle
-            label="시간 조정"
-            checked={fields.allowTimeAdjustment}
-            onChange={(checked) => update('allowTimeAdjustment', checked)}
-          />
-          <Toggle
-            label="부분 완료"
-            checked={fields.allowPartialCompletion}
-            onChange={(checked) => update('allowPartialCompletion', checked)}
-          />
-          <Toggle
-            label="범위 축소"
-            checked={fields.allowScopeReduction}
-            onChange={(checked) => update('allowScopeReduction', checked)}
-          />
-        </fieldset>
 
         <label className="field field--wide">
           <span>
@@ -244,25 +206,5 @@ export function RequestPanel({
         </button>
       </form>
     </section>
-  )
-}
-
-interface ToggleProps {
-  readonly label: string
-  readonly checked: boolean
-  readonly onChange: (checked: boolean) => void
-}
-
-function Toggle({ label, checked, onChange }: ToggleProps) {
-  return (
-    <label className="toggle-row">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-      <span className="toggle-track" aria-hidden="true" />
-      <span>{label}</span>
-    </label>
   )
 }

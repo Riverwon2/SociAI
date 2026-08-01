@@ -7,6 +7,9 @@ test('첫 후보 수락은 추가 질문 없이 fully matched로 끝난다', asy
   await expect(page.getByRole('heading', { name: '오늘 어떤 도움이 필요하세요?' })).toHaveCount(0)
   await expect(page.getByText('신청자 화면', { exact: true })).toBeVisible()
   await expect(page.getByText('도움 수락자 화면', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '우리 동네에 도움이 필요해요' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '모든 도움이 연결됐어요' })).toHaveCount(0)
+  await page.getByRole('button', { name: '수락', exact: true }).click()
   await expect(page.getByRole('heading', { name: '모든 도움이 연결됐어요' })).toBeVisible()
   await expect(page.getByText(/가상 이웃 하나님이 도움을 수락했어요/)).toBeVisible()
   await expect(page.getByRole('button', { name: '미션 완료' })).toBeVisible()
@@ -23,6 +26,12 @@ test('거절과 timeout 뒤 plan.updated가 다음 섭외보다 먼저 온다', 
   await page.getByRole('button', { name: /거절과 무응답 뒤 재섭외/ }).click()
   await page.getByRole('button', { name: /이 요청으로 실행하기/ }).click()
 
+  await expect(page.getByText(/거절을 눌러 1번째 응답/)).toBeVisible()
+  await page.getByRole('button', { name: '거절', exact: true }).click()
+  await expect(page.getByRole('button', { name: '응답하지 않고 시간 보내기' })).toBeVisible()
+  await page.getByRole('button', { name: '응답하지 않고 시간 보내기' }).click()
+  await expect(page.getByText(/수락을 눌러 3번째 응답/)).toBeVisible()
+  await page.getByRole('button', { name: '수락', exact: true }).click()
   await expect(page.getByRole('heading', { name: '모든 도움이 연결됐어요' })).toBeVisible()
   await page.getByText('진행 과정 자세히 보기', { exact: true }).click()
   const eventTypes = await page
@@ -43,6 +52,8 @@ test('혼합 위험 요청은 안전한 작업의 성공을 보존한다', async
   await page.getByRole('button', { name: /위험한 일만 안전하게 제외/ }).click()
   await page.getByRole('button', { name: /이 요청으로 실행하기/ }).click()
 
+  await expect(page.getByText(/수락을 눌러 1번째 응답/)).toBeVisible()
+  await page.getByRole('button', { name: '수락', exact: true }).click()
   await expect(page.getByRole('heading', { name: '안전한 도움만 연결됐어요' })).toBeVisible()
   await page.getByText('진행 과정 자세히 보기', { exact: true }).click()
   await expect(page.getByRole('heading', { name: '문서봉투 전달' })).toBeVisible()
