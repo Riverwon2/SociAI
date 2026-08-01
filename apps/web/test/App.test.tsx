@@ -19,6 +19,7 @@ import { EventTimeline } from '../src/timeline/EventTimeline.js'
 describe('role 3 demo UI', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-01T12:00:00+09:00'))
     window.history.replaceState({}, '', '/')
     window.sessionStorage.clear()
   })
@@ -63,6 +64,17 @@ describe('role 3 demo UI', () => {
     ).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '미션 완료' }))
     expect(screen.getByRole('heading', { name: '도움을 완료했어요' })).toBeInTheDocument()
+  })
+
+  it('replays a fixed-date fixture after its calendar date has passed', () => {
+    vi.setSystemTime(new Date('2026-08-02T12:00:00+09:00'))
+    render(<App replayIntervalMs={1} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
+
+    expect(
+      screen.queryByRole('heading', { name: '오늘 어떤 도움이 필요하세요?' })
+    ).not.toBeInTheDocument()
   })
 
   it('delivers the requester thank-you note to the helper after the mission completes', async () => {
