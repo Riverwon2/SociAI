@@ -4,7 +4,8 @@ export type SimulatedOutcome = 'accepted' | 'rejected' | 'timed_out' | 'cancelle
 
 const KNOWN_SCENARIOS: Readonly<Record<string, readonly SimulatedOutcome[]>> = Object.freeze({
   'happy-path-v1': ['accepted'],
-  'retry-path-v1': ['rejected', 'timed_out', 'accepted'],
+  'retry-path-v1': ['rejected', 'accepted'],
+  'timeout-retry-path-v1': ['timed_out', 'accepted'],
   'mixed-risk-v1': ['accepted']
 })
 

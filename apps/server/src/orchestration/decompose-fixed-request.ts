@@ -10,6 +10,7 @@ import {
 
 import { FIXED_RUN_ID, fixedInitialRequest } from '../fixtures/fixed-initial-request.js'
 import { TaskPlanOutputSchema } from '../openai/task-plan-schema.js'
+import { WorkflowHookStage, type WorkflowHookEmitter } from './workflow-hooks.js'
 
 export type TaskPlanner = Readonly<{
   decompose: (
@@ -28,19 +29,48 @@ export async function decomposeFixedRequest({
   planner,
   initialRequest = fixedInitialRequest,
   runId = FIXED_RUN_ID,
-  occurredAt = new Date().toISOString()
+  occurredAt = new Date().toISOString(),
+  hooks
 }: Readonly<{
   planner: TaskPlanner
   initialRequest?: unknown
   runId?: string
   occurredAt?: string
+  hooks?: WorkflowHookEmitter
 }>): Promise<DecomposedPlan> {
+  hooks?.emit(WorkflowHookStage.inputValidation, 'before', { runId })
   const request = parseInitialRequest(initialRequest)
-  const plannerOutput = await planner.decompose({ initialRequest: request, runId })
+  hooks?.emit(WorkflowHookStage.inputValidation, 'after', {
+    requestId: request.requestId,
+    timeWindow: request.timeWindow,
+    maxActivityDurationMinutes: request.maxActivityDurationMinutes
+  })
+  hooks?.emit(WorkflowHookStage.taskDecomposition, 'before', {
+    requestId: request.requestId,
+    runId,
+    provider: 'openai_structured_output'
+  })
+  let plannerOutput: unknown
+  try {
+    plannerOutput = await planner.decompose({ initialRequest: request, runId })
+  } catch (error) {
+    hooks?.emit(WorkflowHookStage.taskDecomposition, 'error', {
+      requestId: request.requestId,
+      error: error instanceof Error ? error.message : 'OpenAI task decomposition failed.'
+    })
+    throw error
+  }
   const parsedPlan = parsePlannerOutput(plannerOutput)
   const tasks = parsedPlan.tasks.map((task) => TaskSchema.parse(task))
   validateTaskContext(tasks, { requestId: request.requestId, runId })
   const summary = `실행 계획 요약(매칭 확정 전): ${parsedPlan.summary}`
+
+  hooks?.emit(WorkflowHookStage.taskDecomposition, 'after', {
+    requestId: request.requestId,
+    taskIds: tasks.map((task) => task.taskId),
+    taskCount: tasks.length,
+    summary
+  })
 
   return {
     requestId: request.requestId,

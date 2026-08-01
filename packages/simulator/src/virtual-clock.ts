@@ -6,3 +6,12 @@ export function advanceVirtualTime(startAt: string, elapsedMinutes: number): str
   }
   return new Date(start + elapsedMinutes * 60_000).toISOString()
 }
+
+export function advanceVirtualTimeSeconds(startAt: string, elapsedSeconds: number): string {
+  const start = Date.parse(startAt)
+  if (!Number.isFinite(start)) throw new RangeError('startAt must be a valid ISO datetime')
+  if (!Number.isInteger(elapsedSeconds) || elapsedSeconds < 0) {
+    throw new RangeError('elapsedSeconds must be a non-negative integer')
+  }
+  return new Date(start + elapsedSeconds * 1_000).toISOString()
+}

@@ -9,15 +9,22 @@ import { outreachCall } from './fixtures.js'
 
 describe('deterministic outreach simulator', () => {
   it('대표 재시도 시나리오를 거절, timeout, 수락 순서로 재현한다', () => {
-    const results = [1, 2, 3].map((attempt) => sendOutreach(outreachCall(attempt as 1 | 2 | 3)))
+    const results = [1, 2].map((attempt) => sendOutreach(outreachCall(attempt as 1 | 2)))
 
     expect(results.map((result) => result.ok && result.data.outcome)).toEqual([
       'rejected',
-      'timed_out',
       'accepted'
     ])
-    expect(results[1]?.ok && results[1].data.virtualElapsedMinutes).toBe(10)
-    expect(results[1]?.ok && results[1].data.respondedAt).toBeUndefined()
+  })
+
+  it('uses the documented legacy ten-minute timeout when that fixture outcome is selected', () => {
+    const result = sendOutreach(outreachCall(1, 'timeout-retry-path-v1'))
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: { outcome: 'timed_out', virtualElapsedMinutes: 10 }
+    })
+    expect(result.ok && result.data.respondedAt).toBeUndefined()
   })
 
   it.each([

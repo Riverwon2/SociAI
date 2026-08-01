@@ -17,6 +17,7 @@ import {
   FindCandidatesCallSchema,
   InitialRequestSchema,
   RawToolEventSchema,
+  RunAcceptedResponseSchema,
   SafetyDecisionSchema,
   SendOutreachCallSchema,
   SendOutreachResultSchema,
@@ -502,7 +503,7 @@ describe('event contracts', () => {
       data: {
         candidateId: candidate.candidateId,
         attempt: 1,
-        waitedMinutes: 10
+        waitedSeconds: 10
       }
     }
 
@@ -525,6 +526,34 @@ describe('event contracts', () => {
     }
 
     expect(() => AgentEventSchema.parse(invalid)).toThrow()
+  })
+})
+
+describe('run API contracts', () => {
+  it('accepts stream URLs that are correlated to the run id', () => {
+    expect(
+      RunAcceptedResponseSchema.parse({
+        schemaVersion: 2,
+        runId: identifiers.runId,
+        requestId: identifiers.requestId,
+        status: 'accepted',
+        agentEventsUrl: `/api/runs/${identifiers.runId}/events`,
+        rawToolEventsUrl: `/api/runs/${identifiers.runId}/raw-events`
+      })
+    ).toMatchObject({ status: 'accepted', runId: identifiers.runId })
+  })
+
+  it('rejects a stream URL that belongs to another run', () => {
+    expect(() =>
+      RunAcceptedResponseSchema.parse({
+        schemaVersion: 2,
+        runId: identifiers.runId,
+        requestId: identifiers.requestId,
+        status: 'accepted',
+        agentEventsUrl: '/api/runs/run_other/events',
+        rawToolEventsUrl: `/api/runs/${identifiers.runId}/raw-events`
+      })
+    ).toThrow()
   })
 })
 

@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest'
 
-import { FindCandidatesResultSchema, type CandidateProfile } from '@30-minute-exchange/contracts'
+import {
+  FindCandidatesForBundleResultSchema,
+  FindCandidatesResultSchema,
+  type CandidateProfile,
+  type FindCandidatesForBundleCall
+} from '@30-minute-exchange/contracts'
 
 import { calculateAvailabilityScore } from '../src/ranking/availability-score.js'
 import { calculateDistanceScore } from '../src/ranking/distance-score.js'
 import { calculateExperienceScore } from '../src/ranking/experience-score.js'
 import { findCandidates } from '../src/ranking/find-candidates.js'
-import { candidatesCall, candidateProfiles, task } from './fixtures.js'
+import { findCandidatesForBundle } from '../src/ranking/find-candidates-for-bundle.js'
+import { candidatesCall, candidateProfiles, identifiers, task } from './fixtures.js'
 
 describe('candidate scoring', () => {
   it('가용 시간의 겹침을 0부터 1 사이 점수로 계산한다', () => {
@@ -75,5 +81,72 @@ describe('findCandidates', () => {
       'candidate_zeta'
     ])
     expect(profiles).toEqual(snapshot)
+  })
+})
+
+describe('findCandidatesForBundle', () => {
+  const bundle: FindCandidatesForBundleCall['bundle'] = {
+    schemaVersion: 2,
+    runId: identifiers.runId,
+    requestId: identifiers.requestId,
+    bundleId: 'bundle_candidates_001',
+    taskIds: [identifiers.taskId],
+    scheduledWindow: task.timeWindow,
+    totalActivityDurationMinutes: 20,
+    waitingMinutes: 0,
+    requiredExperience: [],
+    reasonCodes: ['single_task_bundle']
+  }
+
+  function bundleCandidatesCall(
+    profiles: readonly CandidateProfile[] = candidateProfiles,
+    plannedAssignments: FindCandidatesForBundleCall['plannedAssignments'] = []
+  ): FindCandidatesForBundleCall {
+    return {
+      schemaVersion: 2,
+      runId: identifiers.runId,
+      requestId: identifiers.requestId,
+      toolCallId: 'call_bundle_candidates_001',
+      bundle,
+      candidateProfiles: [...profiles],
+      plannedAssignments
+    }
+  }
+
+  it('excludes a candidate whose planned assignment overlaps the bundle window', () => {
+    const result = findCandidatesForBundle(
+      bundleCandidatesCall(candidateProfiles, [
+        {
+          schemaVersion: 2,
+          runId: identifiers.runId,
+          requestId: identifiers.requestId,
+          assignmentId: 'assignment_busy_alpha',
+          bundleId: 'bundle_existing_001',
+          candidateId: 'candidate_alpha',
+          taskIds: ['task_existing_001'],
+          scheduledWindow: task.timeWindow,
+          attempt: 1,
+          status: 'planned',
+          isSimulation: true
+        }
+      ])
+    )
+
+    expect(FindCandidatesForBundleResultSchema.parse(result)).toEqual(result)
+    expect(result.ok && result.data.candidates.map(({ candidateId }) => candidateId)).toEqual([
+      'candidate_beta'
+    ])
+    expect(result.ok && result.data.excludedCount).toBe(2)
+  })
+
+  it('ranks eligible bundle candidates by reliability then candidate ID', () => {
+    const result = findCandidatesForBundle(bundleCandidatesCall(candidateProfiles.slice(0, 2)))
+
+    expect(
+      result.ok && result.data.candidates.map(({ candidateId, rank }) => [candidateId, rank])
+    ).toEqual([
+      ['candidate_alpha', 1],
+      ['candidate_beta', 2]
+    ])
   })
 })

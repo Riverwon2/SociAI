@@ -6,7 +6,7 @@ import type {
   Task
 } from '@30-minute-exchange/contracts'
 
-import { SUFFICIENCY_REASON_CODES } from './reason-codes.js'
+import { SUFFICIENCY_REASON_CODES, isCoreSufficiencyInformationCode } from './reason-codes.js'
 
 export type SufficiencyEvaluation = Readonly<{
   status: SufficiencyStatus
@@ -22,8 +22,9 @@ export function evaluateSufficiency(
 ): SufficiencyEvaluation {
   const availableCodes = new Set(availableFacts.map(({ code }) => code))
   const unresolved = task.missingInformation.filter(({ code }) => !availableCodes.has(code))
+  const unresolvedCore = unresolved.filter(({ code }) => isCoreSufficiencyInformationCode(code))
 
-  if (unresolved.length === 0) {
+  if (unresolvedCore.length === 0) {
     return {
       status: 'sufficient',
       action: 'proceed',
@@ -36,7 +37,7 @@ export function evaluateSufficiency(
     status: 'insufficient',
     action: 'hold',
     reasonCodes: [SUFFICIENCY_REASON_CODES.missingRequiredInformation],
-    missingInformation: unresolved,
+    missingInformation: unresolvedCore,
     guidance: '필수 정보를 확인할 수 없어 이 태스크만 보류합니다.'
   }
 }

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import {
+  AssignmentIdSchema,
   CandidateIdSchema,
   RequestIdSchema,
   RunIdSchema,
@@ -11,6 +12,16 @@ import {
 
 export const MAX_BUNDLE_ACTIVITY_DURATION_MINUTES = 30
 export const MAX_BUNDLE_WAITING_MINUTES = 20
+export const MAX_ASSIGNMENT_ATTEMPTS = 3
+
+export const AssignmentStatusSchema = z.enum([
+  'planned',
+  'offered',
+  'accepted',
+  'rejected',
+  'timed_out',
+  'cancelled'
+])
 
 const TaskIdsSchema = z.array(TaskIdSchema).min(1).max(10)
 
@@ -50,28 +61,46 @@ export const TaskBundleSchema = z
     }
   )
 
-export const AssignmentSchema = z
+const AssignmentShape = z
   .object({
     schemaVersion: SchemaVersionSchema,
     runId: RunIdSchema,
     requestId: RequestIdSchema,
-    assignmentId: z.string().trim().min(1).max(128),
+    assignmentId: AssignmentIdSchema,
     bundleId: z.string().trim().min(1).max(128),
     candidateId: CandidateIdSchema,
     taskIds: TaskIdsSchema,
     scheduledWindow: TimeWindowSchema,
+    attempt: z.number().int().min(1).max(MAX_ASSIGNMENT_ATTEMPTS).optional(),
+    status: AssignmentStatusSchema.optional(),
     isSimulation: z.boolean()
   })
   .strict()
-  .superRefine(({ taskIds }, context) => {
-    if (new Set(taskIds).size !== taskIds.length) {
-      context.addIssue({
-        code: 'custom',
-        message: 'An assignment cannot contain the same task more than once',
-        path: ['taskIds']
-      })
-    }
-  })
+
+export const AssignmentSchema = AssignmentShape.superRefine(({ taskIds }, context) => {
+  if (new Set(taskIds).size !== taskIds.length) {
+    context.addIssue({
+      code: 'custom',
+      message: 'An assignment cannot contain the same task more than once',
+      path: ['taskIds']
+    })
+  }
+})
+
+export const PlannedAssignmentSchema = AssignmentShape.extend({
+  attempt: z.number().int().min(1).max(MAX_ASSIGNMENT_ATTEMPTS),
+  status: z.literal('planned')
+}).superRefine(({ taskIds }, context) => {
+  if (new Set(taskIds).size !== taskIds.length) {
+    context.addIssue({
+      code: 'custom',
+      message: 'An assignment cannot contain the same task more than once',
+      path: ['taskIds']
+    })
+  }
+})
 
 export type TaskBundle = z.infer<typeof TaskBundleSchema>
 export type Assignment = z.infer<typeof AssignmentSchema>
+export type AssignmentStatus = z.infer<typeof AssignmentStatusSchema>
+export type PlannedAssignment = z.infer<typeof PlannedAssignmentSchema>

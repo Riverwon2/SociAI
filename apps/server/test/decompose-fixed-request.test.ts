@@ -7,6 +7,10 @@ import {
   decomposeFixedRequest,
   type TaskPlanner
 } from '../src/orchestration/decompose-fixed-request.js'
+import {
+  createWorkflowHookEmitter,
+  type WorkflowHook
+} from '../src/orchestration/workflow-hooks.js'
 
 const validPlannerOutput = {
   summary: '도서 반납을 위한 실행 계획입니다. 아직 매칭 결과는 확정되지 않았습니다.',
@@ -93,6 +97,24 @@ describe('decomposeFixedRequest', () => {
     await expect(decomposeFixedRequest({ planner: createPlanner(invalidOutput) })).rejects.toThrow(
       /OpenAI plan task must use status created/
     )
+  })
+
+  it('emits a decomposition error hook when the OpenAI boundary fails', async () => {
+    const trace: WorkflowHook[] = []
+    const hooks = createWorkflowHookEmitter({
+      occurredAt: '2026-08-01T09:00:00.000Z',
+      onHook: (event) => trace.push(event)
+    })
+    const failingPlanner: TaskPlanner = {
+      decompose: async () => {
+        throw new Error('Synthetic OpenAI failure.')
+      }
+    }
+
+    await expect(decomposeFixedRequest({ planner: failingPlanner, hooks })).rejects.toThrow(
+      /Synthetic OpenAI failure/
+    )
+    expect(trace.at(-1)).toMatchObject({ stage: 'task.decomposition', phase: 'error' })
   })
 
   it('appends only initial events with increasing sequence numbers', async () => {

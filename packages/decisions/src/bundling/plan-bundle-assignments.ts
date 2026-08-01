@@ -1,9 +1,13 @@
 import {
   AssignmentSchema,
+  BuildTaskBundlesCallSchema,
+  BuildTaskBundlesResultSchema,
   MAX_BUNDLE_ACTIVITY_DURATION_MINUTES,
   MAX_BUNDLE_WAITING_MINUTES,
   TaskBundleSchema,
   type Assignment,
+  type BuildTaskBundlesCall,
+  type BuildTaskBundlesResult,
   type CandidateProfile,
   type Task,
   type TaskBundle,
@@ -31,6 +35,29 @@ export type BundleAssignmentPlan = Readonly<{
   unassignedTaskIds: readonly string[]
   splitReasonCodes: readonly string[]
 }>
+
+/**
+ * Creates schedule-feasible bundles from safety- and sufficiency-cleared tasks.
+ * Candidate selection intentionally belongs to the following orchestration step.
+ */
+export function buildTaskBundles(input: BuildTaskBundlesCall): BuildTaskBundlesResult {
+  const call = BuildTaskBundlesCallSchema.parse(input)
+  const plan = planReadyTaskBundles(call.tasks)
+
+  return BuildTaskBundlesResultSchema.parse({
+    schemaVersion: call.schemaVersion,
+    runId: call.runId,
+    requestId: call.requestId,
+    toolCallId: call.toolCallId,
+    ok: true,
+    data: {
+      processedTaskIds: call.tasks.map((task) => task.taskId),
+      bundles: plan.bundles,
+      heldTaskIds: plan.heldTaskIds,
+      splitReasonCodes: plan.splitReasonCodes
+    }
+  })
+}
 
 export function planBundleAssignments({
   tasks,
@@ -121,6 +148,38 @@ function createBundles(
   }
 
   return { bundles, unassignedTaskIds, splitReasonCodes }
+}
+
+function planReadyTaskBundles(tasks: readonly Task[]): Readonly<{
+  bundles: readonly TaskBundle[]
+  heldTaskIds: readonly string[]
+  splitReasonCodes: readonly string[]
+}> {
+  if (tasks.some((task) => task.status !== 'ready')) {
+    throw new RangeError('Only ready tasks may enter deterministic task bundling')
+  }
+
+  const sortedTasks = [...tasks].sort(compareTasks)
+  const context = getSharedContext(sortedTasks)
+  if (context === null) {
+    throw new Error('Tasks must share runId and requestId before bundle planning')
+  }
+
+  const tasksWithSchedulingMetadata = sortedTasks.filter(hasSchedulingMetadata)
+  const tasksMissingSchedulingMetadata = sortedTasks.filter((task) => !hasSchedulingMetadata(task))
+  const planned = createBundles(tasksWithSchedulingMetadata, context)
+
+  return {
+    bundles: planned.bundles,
+    heldTaskIds: unique([
+      ...tasksMissingSchedulingMetadata.map((task) => task.taskId),
+      ...planned.unassignedTaskIds
+    ]),
+    splitReasonCodes: unique([
+      ...(tasksMissingSchedulingMetadata.length > 0 ? ['task_schedule_metadata_missing'] : []),
+      ...planned.splitReasonCodes
+    ])
+  }
 }
 
 function resolveAssignments({

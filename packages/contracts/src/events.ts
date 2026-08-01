@@ -1,11 +1,12 @@
 import { z } from 'zod'
 
 import { AssignmentSchema, TaskBundleSchema } from './assignment.js'
-import { CandidateSchema } from './candidate.js'
+import { BundleCandidateSchema, CandidateSchema } from './candidate.js'
 import { FinalResultSchema } from './final-result.js'
 import { InitialRequestSchema } from './initial-request.js'
 import { SafetyDecisionSchema, SafetyLevelSchema } from './safety-decision.js'
 import {
+  AssignmentIdSchema,
   CandidateIdSchema,
   EventIdSchema,
   IsoDateTimeSchema,
@@ -31,6 +32,7 @@ export const AgentEventTypeSchema = z.enum([
   'bundles.planned',
   'assignments.planned',
   'candidates.ranked',
+  'bundle.candidates.ranked',
   'outreach.sent',
   'neighbor.replied',
   'outreach.timed_out',
@@ -218,10 +220,40 @@ const CandidatesRankedEventSchema = createEventSchema(
     validateEventRecordContext(event, candidate, context, ['data', 'candidates', index])
   }
 })
+const BundleCandidatesRankedEventSchema = createEventSchema(
+  'bundle.candidates.ranked',
+  z
+    .object({
+      bundleId: z.string().trim().min(1).max(128),
+      candidates: z.array(BundleCandidateSchema),
+      scoringPolicyVersion: z.string().trim().min(1).max(100)
+    })
+    .strict()
+).superRefine((event, context) => {
+  for (const [index, candidate] of event.data.candidates.entries()) {
+    for (const field of ['runId', 'requestId'] as const) {
+      if (event[field] !== candidate[field]) {
+        context.addIssue({
+          code: 'custom',
+          message: `${field} must match the bundle candidate context`,
+          path: ['data', 'candidates', index, field]
+        })
+      }
+    }
+    if (event.data.bundleId !== candidate.bundleId) {
+      context.addIssue({
+        code: 'custom',
+        message: 'bundleId must match the bundle candidate context',
+        path: ['data', 'candidates', index, 'bundleId']
+      })
+    }
+  }
+})
 const OutreachSentEventSchema = createEventSchema(
   'outreach.sent',
   z
     .object({
+      assignmentId: AssignmentIdSchema.optional(),
       candidateId: CandidateIdSchema,
       attempt: z.number().int().min(1).max(3),
       responseDeadlineAt: IsoDateTimeSchema,
@@ -234,6 +266,7 @@ const NeighborRepliedEventSchema = createEventSchema(
   'neighbor.replied',
   z
     .object({
+      assignmentId: AssignmentIdSchema.optional(),
       candidateId: CandidateIdSchema,
       attempt: z.number().int().min(1).max(3),
       response: z.enum(['accepted', 'rejected', 'cancelled']),
@@ -246,9 +279,10 @@ const OutreachTimedOutEventSchema = createEventSchema(
   'outreach.timed_out',
   z
     .object({
+      assignmentId: AssignmentIdSchema.optional(),
       candidateId: CandidateIdSchema,
       attempt: z.number().int().min(1).max(3),
-      waitedMinutes: z.literal(10)
+      waitedSeconds: z.literal(10)
     })
     .strict(),
   true
@@ -259,6 +293,7 @@ const MatchConfirmedEventSchema = createEventSchema(
   z
     .object({
       matchId: z.string().trim().min(1).max(128),
+      assignmentId: AssignmentIdSchema.optional(),
       candidateId: CandidateIdSchema,
       scheduledWindow: TimeWindowSchema,
       durationMinutes: z.number().int().min(1).max(30),
@@ -316,6 +351,7 @@ export const AgentEventSchema = z.discriminatedUnion('type', [
   BundlesPlannedEventSchema,
   AssignmentsPlannedEventSchema,
   CandidatesRankedEventSchema,
+  BundleCandidatesRankedEventSchema,
   OutreachSentEventSchema,
   NeighborRepliedEventSchema,
   OutreachTimedOutEventSchema,

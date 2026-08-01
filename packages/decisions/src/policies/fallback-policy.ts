@@ -1,6 +1,7 @@
 import type { Candidate, FallbackPolicy } from '@30-minute-exchange/contracts'
 
-export const MAX_CANDIDATE_ATTEMPTS = 3
+/** One initial outreach plus one fallback keeps every bundle within the demo budget. */
+export const MAX_CANDIDATE_ATTEMPTS = 2
 export const OUTREACH_TIMEOUT_MINUTES = 10
 
 export type FallbackAction = 'next_candidate' | 'adjust_time' | 'reduce_scope' | 'unmatched'

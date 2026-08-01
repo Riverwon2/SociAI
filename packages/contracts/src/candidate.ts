@@ -86,5 +86,22 @@ export const CandidateSchema = z
     }
   })
 
+export const BundleCandidateSchema = z
+  .object({
+    schemaVersion: SchemaVersionSchema,
+    runId: RunIdSchema,
+    requestId: RequestIdSchema,
+    bundleId: z.string().trim().min(1).max(128),
+    candidateId: CandidateIdSchema,
+    displayName: z.string().trim().min(1).max(100),
+    activityRegion: ActivityRegionSchema,
+    experienceTags: z.array(z.string().trim().min(1).max(100)).max(30),
+    reliabilityRate: z.number().min(0).max(1),
+    rank: z.number().int().positive(),
+    isSimulation: z.boolean()
+  })
+  .strict()
+
 export type Candidate = z.infer<typeof CandidateSchema>
 export type CandidateProfile = z.infer<typeof CandidateProfileSchema>
+export type BundleCandidate = z.infer<typeof BundleCandidateSchema>

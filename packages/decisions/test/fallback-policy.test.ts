@@ -19,6 +19,9 @@ describe('fallback policy', () => {
 
     expect(selectNextCandidate(result.data.candidates, new Set())?.rank).toBe(1)
     expect(selectNextCandidate(result.data.candidates, new Set(['candidate_alpha']))?.rank).toBe(2)
+    expect(
+      selectNextCandidate(result.data.candidates, new Set(['candidate_alpha', 'candidate_beta']))
+    ).toBeNull()
   })
 
   it('후보와 fallback을 우선순위대로 하나만 선택한다', () => {
