@@ -1,3 +1,12 @@
 export { sendOutreach } from './send-outreach.js'
-export { determineResponse } from './scenario-policy.js'
+export {
+  sendClarificationInvite,
+  type ClarificationInviteCall,
+  type ClarificationInviteResult
+} from './send-clarification-invite.js'
+export {
+  determineClarificationResponse,
+  determineResponse,
+  type ClarificationOutcome
+} from './scenario-policy.js'
 export { advanceVirtualTime } from './virtual-clock.js'

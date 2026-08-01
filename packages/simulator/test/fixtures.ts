@@ -5,6 +5,8 @@ import {
   type Task
 } from '@30-minute-exchange/contracts'
 
+import type { ClarificationInviteCall } from '../src/send-clarification-invite.js'
+
 export const task: Task = {
   schemaVersion: SCHEMA_VERSION,
   runId: 'run_simulator_001',
@@ -58,6 +60,40 @@ export function outreachCall(attempt: 1 | 2 | 3, seed = 'retry-path-v1'): SendOu
     candidate: { ...candidate, candidateId: `candidate_retry_00${attempt}`, rank: attempt },
     attempt,
     timeoutMinutes: 10,
+    seed
+  }
+}
+
+export function clarificationInviteCall(seed: string): ClarificationInviteCall {
+  const heldTask: Task = {
+    ...task,
+    status: 'held',
+    missingInformation: [{ code: 'item_weight', message: '물품 무게를 확인할 수 없습니다.' }]
+  }
+
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    runId: heldTask.runId,
+    requestId: heldTask.requestId,
+    taskId: heldTask.taskId,
+    toolCallId: 'call_clarification_001',
+    task: heldTask,
+    sufficiencyDecision: {
+      schemaVersion: SCHEMA_VERSION,
+      runId: heldTask.runId,
+      requestId: heldTask.requestId,
+      taskId: heldTask.taskId,
+      status: 'insufficient',
+      action: 'hold',
+      reasonCodes: ['missing_required_information'],
+      missingInformation: heldTask.missingInformation
+    },
+    candidate: {
+      ...candidate,
+      runId: heldTask.runId,
+      requestId: heldTask.requestId,
+      taskId: heldTask.taskId
+    },
     seed
   }
 }
