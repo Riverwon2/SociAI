@@ -35,6 +35,8 @@ export function TaskBoard({ tasks }: TaskBoardProps) {
               <Decision label="섭외" value={`${task.attempts.length}/3회`} />
             </div>
 
+            <BundleAssignment task={task} />
+
             <DecisionReasons label="안전 근거" codes={task.safetyReasonCodes} />
             <DecisionReasons label="정보 근거" codes={task.sufficiencyReasonCodes} />
 
@@ -74,6 +76,46 @@ function Decision({ label, value }: { readonly label: string; readonly value: st
       <b>{value}</b>
     </span>
   )
+}
+
+function BundleAssignment({ task }: { readonly task: TaskRunView }) {
+  const { assignment, bundle } = task
+  if (bundle === null && assignment === null) return null
+
+  return (
+    <div className="bundle-row">
+      {bundle !== null && (
+        <>
+          <span>묶음</span>
+          <code>{bundle.bundleId}</code>
+          <b>
+            총 {bundle.totalActivityDurationMinutes}분 · 대기 {bundle.waitingMinutes}분
+          </b>
+          {bundle.companionTaskIds.length > 0 && (
+            <small>다른 작업 {bundle.companionTaskIds.length}개와 함께</small>
+          )}
+        </>
+      )}
+      {assignment !== null && (
+        <>
+          <span>배정</span>
+          <b>{assignment.candidateName ?? assignment.candidateId}</b>
+          <small>
+            {formatWindow(assignment.startAt)}–{formatWindow(assignment.endAt)}
+          </small>
+        </>
+      )}
+    </div>
+  )
+}
+
+function formatWindow(value: string): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).format(new Date(value))
 }
 
 function DecisionReasons({

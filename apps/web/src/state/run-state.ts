@@ -160,6 +160,23 @@ export interface TaskRunView {
   readonly status: string
   readonly matchedCandidateId: string | null
   readonly blockGuidance: string | null
+  readonly bundle: TaskBundleView | null
+  readonly assignment: TaskAssignmentView | null
+}
+
+export interface TaskBundleView {
+  readonly bundleId: string
+  readonly companionTaskIds: readonly string[]
+  readonly totalActivityDurationMinutes: number
+  readonly waitingMinutes: number
+}
+
+export interface TaskAssignmentView {
+  readonly assignmentId: string
+  readonly candidateId: string
+  readonly candidateName: string | null
+  readonly startAt: string
+  readonly endAt: string
 }
 
 interface MutableTaskRunView {
@@ -177,6 +194,8 @@ interface MutableTaskRunView {
   status: string
   matchedCandidateId: string | null
   blockGuidance: string | null
+  bundle: TaskBundleView | null
+  assignment: TaskAssignmentView | null
 }
 
 export function deriveTaskViews(buffer: NormalizedEventBuffer): readonly TaskRunView[] {
@@ -185,7 +204,29 @@ export function deriveTaskViews(buffer: NormalizedEventBuffer): readonly TaskRun
     if (item.kind !== 'known') continue
     applyAgentEvent(tasks, item.event)
   }
-  return [...tasks.values()]
+  return [...tasks.values()].map((task) => resolveAssignedName(task, collectCandidateNames(tasks)))
+}
+
+function collectCandidateNames(tasks: Map<string, MutableTaskRunView>): Map<string, string> {
+  const names = new Map<string, string>()
+  for (const task of tasks.values()) {
+    for (const candidate of task.candidates) names.set(candidate.candidateId, candidate.displayName)
+  }
+  return names
+}
+
+function resolveAssignedName(
+  task: MutableTaskRunView,
+  names: Map<string, string>
+): MutableTaskRunView {
+  if (task.assignment === null) return task
+  return {
+    ...task,
+    assignment: {
+      ...task.assignment,
+      candidateName: names.get(task.assignment.candidateId) ?? null
+    }
+  }
 }
 
 function applyAgentEvent(tasks: Map<string, MutableTaskRunView>, event: AgentEvent) {
@@ -212,6 +253,36 @@ function applyAgentEvent(tasks: Map<string, MutableTaskRunView>, event: AgentEve
       }
       break
     }
+    case 'bundles.planned':
+      for (const bundle of event.data.bundles) {
+        for (const taskId of bundle.taskIds) {
+          const task = tasks.get(taskId)
+          if (task === undefined) continue
+          task.bundle = {
+            bundleId: bundle.bundleId,
+            companionTaskIds: bundle.taskIds.filter((id) => id !== taskId),
+            totalActivityDurationMinutes: bundle.totalActivityDurationMinutes,
+            waitingMinutes: bundle.waitingMinutes
+          }
+        }
+      }
+      break
+    case 'assignments.planned':
+      for (const assignment of event.data.assignments) {
+        for (const taskId of assignment.taskIds) {
+          const task = tasks.get(taskId)
+          if (task === undefined) continue
+          task.assignment = {
+            assignmentId: assignment.assignmentId,
+            candidateId: assignment.candidateId,
+            candidateName: null,
+            startAt: assignment.scheduledWindow.startAt,
+            endAt: assignment.scheduledWindow.endAt
+          }
+          task.status = '이웃 배정'
+        }
+      }
+      break
     case 'candidates.ranked': {
       const task = event.taskId === undefined ? undefined : tasks.get(event.taskId)
       if (task !== undefined) {
@@ -293,7 +364,9 @@ function createTaskView(task: {
     attempts: [],
     status: '작업 생성',
     matchedCandidateId: null,
-    blockGuidance: null
+    blockGuidance: null,
+    bundle: null,
+    assignment: null
   }
 }
 

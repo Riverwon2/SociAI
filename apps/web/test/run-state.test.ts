@@ -37,6 +37,34 @@ describe('run state reducer', () => {
     expect(tasks[1]?.safetyReasonCodes).toEqual(['medication_assistance'])
   })
 
+  it('fans bundle and assignment planning out to every task in the bundle', () => {
+    const fixture = getDemoScenario('multi_helper_split').fixture
+    const tasks = deriveTaskViews(reduceFixture(fixture).normalized)
+
+    expect(tasks.map(({ bundle }) => bundle?.bundleId)).toEqual(['bundle_1', 'bundle_2'])
+    expect(tasks.map(({ assignment }) => assignment?.assignmentId)).toEqual([
+      'assignment_1',
+      'assignment_2'
+    ])
+    expect(tasks.map(({ assignment }) => assignment?.candidateId)).toEqual([
+      'candidate_multi_meal',
+      'candidate_multi_dog'
+    ])
+    expect(tasks[1]?.bundle?.totalActivityDurationMinutes).toBe(25)
+    expect(tasks.every(({ bundle }) => bundle?.companionTaskIds.length === 0)).toBe(true)
+  })
+
+  it('names an assigned neighbour only when a ranking event introduced them', () => {
+    const fixture = getDemoScenario('multi_helper_split').fixture
+    const tasks = deriveTaskViews(reduceFixture(fixture).normalized)
+
+    expect(tasks[0]?.assignment?.candidateName).toBe(
+      fixture.candidates.find(({ candidateId }) => candidateId === 'candidate_multi_meal')
+        ?.displayName
+    )
+    expect(tasks[1]?.assignment?.candidateName).toBeNull()
+  })
+
   it('does not lose a raw provider payload or completed events on a failure', () => {
     const fixture = getDemoScenario('first_candidate_accepts').fixture
     const complete = reduceFixture(fixture)
