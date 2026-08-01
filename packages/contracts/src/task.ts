@@ -23,6 +23,10 @@ export const TaskStatusSchema = z.enum([
   'failed'
 ])
 
+export const TaskDurationSourceSchema = z.enum(['explicit', 'llm_estimated'])
+export const TaskTimeSourceSchema = z.enum(['explicit', 'inherited_request_window'])
+export const TaskTimeCertaintySchema = z.enum(['fixed', 'flexible'])
+
 export const TaskSchema = z
   .object({
     schemaVersion: SchemaVersionSchema,
@@ -35,10 +39,35 @@ export const TaskSchema = z
     region: ActivityRegionSchema,
     requiredExperience: z.array(z.string().trim().min(1).max(100)).max(20),
     estimatedDurationMinutes: z.number().int().min(1).max(30),
+    durationSource: TaskDurationSourceSchema.optional(),
+    timeSource: TaskTimeSourceSchema.optional(),
+    timeCertainty: TaskTimeCertaintySchema.optional(),
     status: TaskStatusSchema,
     missingInformation: z.array(MissingInformationSchema).max(20)
   })
   .strict()
+  .superRefine(
+    ({ durationSource, estimatedDurationMinutes, timeCertainty, timeSource }, context) => {
+      if (durationSource === 'llm_estimated' && estimatedDurationMinutes > 20) {
+        context.addIssue({
+          code: 'custom',
+          message: 'An LLM-estimated task duration must not exceed 20 minutes',
+          path: ['estimatedDurationMinutes']
+        })
+      }
+
+      if (timeSource === 'inherited_request_window' && timeCertainty === 'fixed') {
+        context.addIssue({
+          code: 'custom',
+          message: 'A task inheriting the request window must be flexible',
+          path: ['timeCertainty']
+        })
+      }
+    }
+  )
 
 export type TaskStatus = z.infer<typeof TaskStatusSchema>
+export type TaskDurationSource = z.infer<typeof TaskDurationSourceSchema>
+export type TaskTimeSource = z.infer<typeof TaskTimeSourceSchema>
+export type TaskTimeCertainty = z.infer<typeof TaskTimeCertaintySchema>
 export type Task = z.infer<typeof TaskSchema>

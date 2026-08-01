@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { AssignmentSchema, TaskBundleSchema } from './assignment.js'
 import { CandidateProfileSchema, CandidateSchema } from './candidate.js'
 import { SafetyDecisionSchema } from './safety-decision.js'
 import {
@@ -21,6 +22,15 @@ const ToolCallContextSchema = z
     runId: RunIdSchema,
     requestId: RequestIdSchema,
     taskId: TaskIdSchema,
+    toolCallId: ToolCallIdSchema
+  })
+  .strict()
+
+const BundleToolCallContextSchema = z
+  .object({
+    schemaVersion: SchemaVersionSchema,
+    runId: RunIdSchema,
+    requestId: RequestIdSchema,
     toolCallId: ToolCallIdSchema
   })
   .strict()
@@ -58,6 +68,45 @@ function validateCandidateContext(
       })
     }
   }
+}
+
+function validateTasksContext(
+  value: { runId: string; requestId: string; tasks: z.infer<typeof TaskSchema>[] },
+  context: z.RefinementCtx
+) {
+  for (const [index, task] of value.tasks.entries()) {
+    for (const field of ['runId', 'requestId'] as const) {
+      if (value[field] !== task[field]) {
+        context.addIssue({
+          code: 'custom',
+          message: `${field} must match each task context`,
+          path: ['tasks', index, field]
+        })
+      }
+    }
+
+    if (task.status !== 'ready') {
+      context.addIssue({
+        code: 'custom',
+        message: 'Only safety- and sufficiency-cleared tasks may enter bundle assignment',
+        path: ['tasks', index, 'status']
+      })
+    }
+  }
+}
+
+function haveSameTaskIds(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((taskId, index) => taskId === right[index])
+}
+
+function windowsOverlap(
+  left: { scheduledWindow: { startAt: string; endAt: string } },
+  right: { scheduledWindow: { startAt: string; endAt: string } }
+): boolean {
+  return (
+    Date.parse(left.scheduledWindow.startAt) < Date.parse(right.scheduledWindow.endAt) &&
+    Date.parse(right.scheduledWindow.startAt) < Date.parse(left.scheduledWindow.endAt)
+  )
 }
 
 export const ToolErrorSchema = z
@@ -150,6 +199,103 @@ export const FindCandidatesResultSchema = z
     }
   })
 
+export const BuildBundleAssignmentsCallSchema = BundleToolCallContextSchema.extend({
+  tasks: z.array(TaskSchema).min(1).max(10),
+  candidateProfiles: z.array(CandidateProfileSchema).max(100)
+}).superRefine(validateTasksContext)
+
+export const BuildBundleAssignmentsResultSchema = z
+  .discriminatedUnion('ok', [
+    BundleToolCallContextSchema.extend({
+      ok: z.literal(true),
+      data: z
+        .object({
+          processedTaskIds: z.array(TaskIdSchema).min(1).max(10),
+          bundles: z.array(TaskBundleSchema).max(10),
+          assignments: z.array(AssignmentSchema).max(10),
+          unassignedTaskIds: z.array(TaskIdSchema).max(10),
+          splitReasonCodes: z.array(z.string().trim().min(1).max(100)).max(20)
+        })
+        .strict()
+    }),
+    BundleToolCallContextSchema.extend({ ok: z.literal(false), error: ToolErrorSchema })
+  ])
+  .superRefine((result, context) => {
+    if (!result.ok) return
+
+    for (const [index, bundle] of result.data.bundles.entries()) {
+      for (const field of ['runId', 'requestId'] as const) {
+        if (result[field] !== bundle[field]) {
+          context.addIssue({
+            code: 'custom',
+            message: `${field} must match the task bundle context`,
+            path: ['data', 'bundles', index, field]
+          })
+        }
+      }
+    }
+
+    for (const [index, assignment] of result.data.assignments.entries()) {
+      for (const field of ['runId', 'requestId'] as const) {
+        if (result[field] !== assignment[field]) {
+          context.addIssue({
+            code: 'custom',
+            message: `${field} must match the assignment context`,
+            path: ['data', 'assignments', index, field]
+          })
+        }
+      }
+
+      const bundle = result.data.bundles.find(({ bundleId }) => bundleId === assignment.bundleId)
+      if (bundle === undefined || !haveSameTaskIds(bundle.taskIds, assignment.taskIds)) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Assignment taskIds must exactly match its referenced bundle',
+          path: ['data', 'assignments', index, 'taskIds']
+        })
+      }
+    }
+
+    const processedTaskIds = new Set(result.data.processedTaskIds)
+    const assignedTaskIds = result.data.assignments.flatMap(({ taskIds }) => taskIds)
+    const unassignedTaskIds = result.data.unassignedTaskIds
+    const resolvedTaskIds = [...assignedTaskIds, ...unassignedTaskIds]
+    if (
+      processedTaskIds.size !== result.data.processedTaskIds.length ||
+      new Set(resolvedTaskIds).size !== resolvedTaskIds.length ||
+      resolvedTaskIds.length !== processedTaskIds.size ||
+      resolvedTaskIds.some((taskId) => !processedTaskIds.has(taskId))
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Every processed task must be assigned or unassigned exactly once',
+        path: ['data']
+      })
+    }
+
+    for (const bundle of result.data.bundles) {
+      if (bundle.taskIds.some((taskId) => !processedTaskIds.has(taskId))) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Bundle tasks must be included in processedTaskIds',
+          path: ['data', 'bundles']
+        })
+      }
+    }
+
+    for (const [index, assignment] of result.data.assignments.entries()) {
+      for (const other of result.data.assignments.slice(index + 1)) {
+        if (assignment.candidateId === other.candidateId && windowsOverlap(assignment, other)) {
+          context.addIssue({
+            code: 'custom',
+            message: 'A candidate cannot have overlapping assignments',
+            path: ['data', 'assignments', index, 'scheduledWindow']
+          })
+        }
+      }
+    }
+  })
+
 export const SendOutreachCallSchema = ToolCallContextSchema.extend({
   task: TaskSchema,
   candidate: CandidateSchema,
@@ -225,6 +371,8 @@ export type CheckSufficiencyCall = z.infer<typeof CheckSufficiencyCallSchema>
 export type CheckSufficiencyResult = z.infer<typeof CheckSufficiencyResultSchema>
 export type FindCandidatesCall = z.infer<typeof FindCandidatesCallSchema>
 export type FindCandidatesResult = z.infer<typeof FindCandidatesResultSchema>
+export type BuildBundleAssignmentsCall = z.infer<typeof BuildBundleAssignmentsCallSchema>
+export type BuildBundleAssignmentsResult = z.infer<typeof BuildBundleAssignmentsResultSchema>
 export type SendOutreachCall = z.infer<typeof SendOutreachCallSchema>
 export type SendOutreachResult = z.infer<typeof SendOutreachResultSchema>
 export type ConfirmMatchCall = z.infer<typeof ConfirmMatchCallSchema>

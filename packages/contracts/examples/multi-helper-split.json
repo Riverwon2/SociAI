@@ -1,0 +1,286 @@
+{
+  "schemaVersion": 2,
+  "scenarioId": "multi_helper_split",
+  "seed": "multi-helper-split-v1",
+  "initialRequest": {
+    "schemaVersion": 2,
+    "requestId": "request_multi_001",
+    "helpDescription": "A prepaid dinner delivery arrives at 18:00 and a dog needs a 25 minute walk at 19:30.",
+    "timeWindow": { "startAt": "2026-08-01T18:00:00+09:00", "endAt": "2026-08-01T20:00:00+09:00" },
+    "maxActivityDurationMinutes": 30,
+    "timeFlexibility": { "kind": "fixed" },
+    "activityRegion": {
+      "label": "Synthetic District",
+      "approximateLocation": "Synthetic community zone"
+    },
+    "costPolicy": { "choice": "none", "paymentMethod": "not_applicable" },
+    "fallbackPolicy": {
+      "allowTimeAdjustment": false,
+      "allowPartialCompletion": true,
+      "allowScopeReduction": false
+    }
+  },
+  "tasks": [
+    {
+      "schemaVersion": 2,
+      "runId": "run_multi_001",
+      "requestId": "request_multi_001",
+      "taskId": "task_multi_meal",
+      "title": "Prepaid dinner delivery",
+      "description": "Place the prepaid dinner delivery at the requester door.",
+      "timeWindow": {
+        "startAt": "2026-08-01T18:00:00+09:00",
+        "endAt": "2026-08-01T18:15:00+09:00"
+      },
+      "timeSource": "explicit",
+      "timeCertainty": "fixed",
+      "durationSource": "explicit",
+      "region": {
+        "label": "Synthetic District",
+        "approximateLocation": "Synthetic community zone"
+      },
+      "requiredExperience": [],
+      "estimatedDurationMinutes": 8,
+      "status": "created",
+      "missingInformation": []
+    },
+    {
+      "schemaVersion": 2,
+      "runId": "run_multi_001",
+      "requestId": "request_multi_001",
+      "taskId": "task_multi_dog",
+      "title": "Dog walk",
+      "description": "Walk the dog for its evening toilet break.",
+      "timeWindow": {
+        "startAt": "2026-08-01T19:30:00+09:00",
+        "endAt": "2026-08-01T20:00:00+09:00"
+      },
+      "timeSource": "explicit",
+      "timeCertainty": "fixed",
+      "durationSource": "explicit",
+      "region": {
+        "label": "Synthetic District",
+        "approximateLocation": "Synthetic community zone"
+      },
+      "requiredExperience": ["dog_experience"],
+      "estimatedDurationMinutes": 25,
+      "status": "created",
+      "missingInformation": []
+    }
+  ],
+  "candidates": [
+    {
+      "schemaVersion": 2,
+      "runId": "run_multi_001",
+      "requestId": "request_multi_001",
+      "taskId": "task_multi_meal",
+      "candidateId": "candidate_multi_meal",
+      "displayName": "Synthetic Neighbor One",
+      "activityRegion": {
+        "label": "Synthetic District",
+        "approximateLocation": "Synthetic community zone"
+      },
+      "activityRadiusKm": 1,
+      "isAvailable": true,
+      "distanceKm": 0.4,
+      "experienceTags": [],
+      "reliabilityRate": 0.9,
+      "scoreBreakdown": {
+        "availability": 1,
+        "distance": 0.9,
+        "experience": 1,
+        "reliability": 0.9,
+        "weightedTotal": 0.96
+      },
+      "rank": 1,
+      "isSimulation": true
+    },
+    {
+      "schemaVersion": 2,
+      "runId": "run_multi_001",
+      "requestId": "request_multi_001",
+      "taskId": "task_multi_dog",
+      "candidateId": "candidate_multi_dog",
+      "displayName": "Synthetic Neighbor Two",
+      "activityRegion": {
+        "label": "Synthetic District",
+        "approximateLocation": "Synthetic community zone"
+      },
+      "activityRadiusKm": 1,
+      "isAvailable": true,
+      "distanceKm": 0.4,
+      "experienceTags": ["dog_experience"],
+      "reliabilityRate": 0.9,
+      "scoreBreakdown": {
+        "availability": 1,
+        "distance": 0.9,
+        "experience": 1,
+        "reliability": 0.9,
+        "weightedTotal": 0.96
+      },
+      "rank": 1,
+      "isSimulation": true
+    }
+  ],
+  "expectedBundles": [
+    {
+      "schemaVersion": 2,
+      "runId": "run_multi_001",
+      "requestId": "request_multi_001",
+      "bundleId": "bundle_1",
+      "taskIds": ["task_multi_meal"],
+      "scheduledWindow": {
+        "startAt": "2026-08-01T18:00:00+09:00",
+        "endAt": "2026-08-01T18:08:00+09:00"
+      },
+      "totalActivityDurationMinutes": 8,
+      "waitingMinutes": 0,
+      "requiredExperience": [],
+      "reasonCodes": ["single_task_bundle"]
+    },
+    {
+      "schemaVersion": 2,
+      "runId": "run_multi_001",
+      "requestId": "request_multi_001",
+      "bundleId": "bundle_2",
+      "taskIds": ["task_multi_dog"],
+      "scheduledWindow": {
+        "startAt": "2026-08-01T19:30:00+09:00",
+        "endAt": "2026-08-01T19:55:00+09:00"
+      },
+      "totalActivityDurationMinutes": 25,
+      "waitingMinutes": 0,
+      "requiredExperience": ["dog_experience"],
+      "reasonCodes": ["single_task_bundle"]
+    }
+  ],
+  "expectedAssignments": [
+    {
+      "schemaVersion": 2,
+      "runId": "run_multi_001",
+      "requestId": "request_multi_001",
+      "assignmentId": "assignment_1",
+      "bundleId": "bundle_1",
+      "candidateId": "candidate_multi_meal",
+      "taskIds": ["task_multi_meal"],
+      "scheduledWindow": {
+        "startAt": "2026-08-01T18:00:00+09:00",
+        "endAt": "2026-08-01T18:08:00+09:00"
+      },
+      "isSimulation": true
+    },
+    {
+      "schemaVersion": 2,
+      "runId": "run_multi_001",
+      "requestId": "request_multi_001",
+      "assignmentId": "assignment_2",
+      "bundleId": "bundle_2",
+      "candidateId": "candidate_multi_dog",
+      "taskIds": ["task_multi_dog"],
+      "scheduledWindow": {
+        "startAt": "2026-08-01T19:30:00+09:00",
+        "endAt": "2026-08-01T19:55:00+09:00"
+      },
+      "isSimulation": true
+    }
+  ],
+  "responseSequence": [
+    {
+      "taskId": "task_multi_meal",
+      "candidateId": "candidate_multi_meal",
+      "attempt": 1,
+      "outcome": "accepted"
+    },
+    {
+      "taskId": "task_multi_dog",
+      "candidateId": "candidate_multi_dog",
+      "attempt": 1,
+      "outcome": "accepted"
+    }
+  ],
+  "expectedRawToolCorrelations": [
+    { "toolCallId": "call_multi_bundle", "callSequence": 1, "resultSequence": 2 }
+  ],
+  "expectedEventTypes": [
+    "request.created",
+    "plan.created",
+    "task.created",
+    "task.created",
+    "safety.checked",
+    "safety.checked",
+    "sufficiency.checked",
+    "sufficiency.checked",
+    "bundles.planned",
+    "assignments.planned",
+    "candidates.ranked",
+    "outreach.sent",
+    "neighbor.replied",
+    "match.confirmed",
+    "request.completed"
+  ],
+  "expectedFinalResult": {
+    "schemaVersion": 2,
+    "runId": "run_multi_001",
+    "requestId": "request_multi_001",
+    "status": "fully_matched",
+    "taskResults": [
+      {
+        "taskId": "task_multi_meal",
+        "status": "matched",
+        "matchedCandidateId": "candidate_multi_meal",
+        "assignmentId": "assignment_1",
+        "reasonCodes": [],
+        "userMessage": "Dinner delivery is matched."
+      },
+      {
+        "taskId": "task_multi_dog",
+        "status": "matched",
+        "matchedCandidateId": "candidate_multi_dog",
+        "assignmentId": "assignment_2",
+        "reasonCodes": [],
+        "userMessage": "Dog walk is matched."
+      }
+    ],
+    "assignmentResults": [
+      {
+        "schemaVersion": 2,
+        "runId": "run_multi_001",
+        "requestId": "request_multi_001",
+        "assignmentId": "assignment_1",
+        "bundleId": "bundle_1",
+        "candidateId": "candidate_multi_meal",
+        "taskIds": ["task_multi_meal"],
+        "scheduledWindow": {
+          "startAt": "2026-08-01T18:00:00+09:00",
+          "endAt": "2026-08-01T18:08:00+09:00"
+        },
+        "isSimulation": true
+      },
+      {
+        "schemaVersion": 2,
+        "runId": "run_multi_001",
+        "requestId": "request_multi_001",
+        "assignmentId": "assignment_2",
+        "bundleId": "bundle_2",
+        "candidateId": "candidate_multi_dog",
+        "taskIds": ["task_multi_dog"],
+        "scheduledWindow": {
+          "startAt": "2026-08-01T19:30:00+09:00",
+          "endAt": "2026-08-01T19:55:00+09:00"
+        },
+        "isSimulation": true
+      }
+    ],
+    "userMessage": "Two synthetic neighbors are matched for the time-separated tasks.",
+    "completedAt": "2026-08-01T20:00:00+09:00",
+    "simulatedComponents": ["outreach", "neighbor_response"],
+    "executionBoundary": {
+      "openaiInterpretation": "live",
+      "safetyPolicy": "deterministic",
+      "candidateRanking": "deterministic",
+      "outreach": "simulation",
+      "neighborResponse": "simulation",
+      "matchConfirmation": "simulation"
+    }
+  }
+}

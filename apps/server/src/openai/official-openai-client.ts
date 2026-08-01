@@ -120,6 +120,9 @@ const TaskPlanResponseJsonSchema: JsonSchema = {
             items: { type: 'string' }
           },
           estimatedDurationMinutes: { type: 'integer' },
+          durationSource: { type: 'string', enum: ['explicit', 'llm_estimated'] },
+          timeSource: { type: 'string', enum: ['explicit', 'inherited_request_window'] },
+          timeCertainty: { type: 'string', enum: ['fixed', 'flexible'] },
           status: { type: 'string', enum: ['created'] },
           missingInformation: {
             type: 'array',
@@ -145,6 +148,9 @@ const TaskPlanResponseJsonSchema: JsonSchema = {
           'region',
           'requiredExperience',
           'estimatedDurationMinutes',
+          'durationSource',
+          'timeSource',
+          'timeCertainty',
           'status',
           'missingInformation'
         ],

@@ -1,4 +1,5 @@
 export * from './candidate.js'
+export * from './assignment.js'
 export * from './events.js'
 export * from './final-result.js'
 export * from './initial-request.js'
