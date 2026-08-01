@@ -29,13 +29,22 @@ export function RequestPanel({
   const scenario = demoScenarios.find(({ fixture }) => fixture.scenarioId === selectedScenarioId)
   if (scenario === undefined) throw new Error('Selected scenario is unavailable')
 
-  const [fields, setFields] = useState(() => fieldsFromFixture(scenario.fixture))
+  // A replay keeps the fixture's own calendar day so its recorded events stay
+  // consistent; a live run schedules onto today. The same day has to build the
+  // form fields and validate them, or the two disagree once the fixture date
+  // has passed.
+  const formDate =
+    executionMode === 'replay'
+      ? getSeoulDate(new Date(scenario.fixture.initialRequest.timeWindow.startAt))
+      : undefined
+
+  const [fields, setFields] = useState(() => fieldsFromFixture(scenario.fixture, formDate))
   const [errors, setErrors] = useState<readonly string[]>([])
 
   useEffect(() => {
-    setFields(fieldsFromFixture(scenario.fixture))
+    setFields(fieldsFromFixture(scenario.fixture, formDate))
     setErrors([])
-  }, [scenario])
+  }, [scenario, formDate])
 
   const update = <TKey extends keyof RequestFormFields>(
     key: TKey,
@@ -44,11 +53,7 @@ export function RequestPanel({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const replayDate =
-      executionMode === 'replay'
-        ? getSeoulDate(new Date(scenario.fixture.initialRequest.timeWindow.startAt))
-        : undefined
-    const parsed = parseRequestForm(fields, scenario.fixture.initialRequest.requestId, replayDate)
+    const parsed = parseRequestForm(fields, scenario.fixture.initialRequest.requestId, formDate)
     if (!parsed.success) {
       setErrors(parsed.errors)
       return
