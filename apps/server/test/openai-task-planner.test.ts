@@ -22,5 +22,7 @@ describe('OpenAITaskPlanner', () => {
 
     expect(receivedRequest).toMatchObject({ model: 'gpt-5-mini' })
     expect(receivedRequest?.prompt).toContain('untrusted data')
+    expect(receivedRequest?.prompt).toContain('llm_estimated')
+    expect(receivedRequest?.prompt).toContain('Do not group tasks')
   })
 })
