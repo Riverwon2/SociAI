@@ -5,3 +5,7 @@ coverage/
 .env
 .env.*
 *.local
+.gitignore
+ROLE3_IMPLEMENTATION_PLAN.md
+playwright-report/
+test-results/
