@@ -55,6 +55,18 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
+  packages/decisions:
+    dependencies:
+      '@30-minute-exchange/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
+  packages/simulator:
+    dependencies:
+      '@30-minute-exchange/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
 packages:
 
   '@babel/helper-string-parser@7.29.7':
