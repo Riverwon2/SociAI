@@ -349,6 +349,13 @@ export const ClarificationInviteCallSchema = ToolCallContextSchema.extend({
 }).superRefine((value, context) => {
   validateTaskContext(value, context)
   validateCandidateContext(value, context)
+  if (value.task.status !== 'held') {
+    context.addIssue({
+      code: 'custom',
+      message: 'Only held tasks may request a clarification conversation',
+      path: ['task', 'status']
+    })
+  }
 })
 
 export const ClarificationInviteResultSchema = z.discriminatedUnion('ok', [

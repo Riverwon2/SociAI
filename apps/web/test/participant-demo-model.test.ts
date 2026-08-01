@@ -4,6 +4,7 @@ import { buildFixtureEvents } from '../src/demo/fixture-events.js'
 import { deriveParticipantDemoView } from '../src/demo/participant-demo-model.js'
 import { getDemoScenario } from '../src/demo/scenarios.js'
 import { createInitialRunState, runReducer } from '../src/state/run-state.js'
+import { createClarificationFixture } from './clarification-fixture.js'
 
 describe('participant demo view model', () => {
   it('moves both participants from preparation to request and mission states', () => {
@@ -121,6 +122,32 @@ describe('participant demo view model', () => {
       requesterStage: 'partially_matched',
       helpers: [{ stage: 'mission', requestCard: { title: '문서봉투 전달' } }],
       result: { status: 'partially_matched' }
+    })
+  })
+
+  it('derives a requester-only clarification result without a helper connection', () => {
+    const fixture = createClarificationFixture()
+    const events = buildFixtureEvents(fixture)
+    const responseIndex = events.findIndex(({ type }) => type === 'clarification.responded')
+    if (responseIndex < 0) throw new Error('Clarification fixture requires a response')
+    const state = events
+      .slice(0, responseIndex + 1)
+      .reduce(
+        (next, event) => runReducer(next, { type: 'agent.received', value: event }),
+        startedState(fixture)
+      )
+
+    expect(deriveParticipantDemoView(state)).toMatchObject({
+      requesterStage: 'clarification',
+      helpers: [],
+      clarificationResults: [
+        {
+          taskId: 'task_happy_001',
+          candidateId: 'candidate_happy_001',
+          outcome: 'conversation_agreed',
+          requesterMessage: '가상 이웃 하나: 정보 확인 대화에 동의했습니다.'
+        }
+      ]
     })
   })
 })

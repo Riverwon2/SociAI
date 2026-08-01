@@ -697,6 +697,12 @@ describe('tool boundaries', () => {
     expect(ClarificationInviteCallSchema.parse(call)).toEqual(call)
     expect(ClarificationInviteResultSchema.parse(result)).toEqual(result)
     expect(() =>
+      ClarificationInviteCallSchema.parse({
+        ...call,
+        task: { ...call.task, status: 'ready' }
+      })
+    ).toThrow()
+    expect(() =>
       ClarificationInviteResultSchema.parse({
         ...result,
         data: { ...result.data, candidateId: 'another_candidate' }

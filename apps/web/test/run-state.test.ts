@@ -3,6 +3,7 @@ import type { DemoScenarioFixture, FinalResult, RawToolEvent } from '@30-minute-
 
 import { buildFixtureEvents } from '../src/demo/fixture-events.js'
 import { getDemoScenario } from '../src/demo/scenarios.js'
+import { createClarificationFixture } from './clarification-fixture.js'
 import {
   createInitialRunState,
   deriveTaskViews,
@@ -52,6 +53,27 @@ describe('run state reducer', () => {
     ])
     expect(tasks[1]?.bundle?.totalActivityDurationMinutes).toBe(25)
     expect(tasks.every(({ bundle }) => bundle?.companionTaskIds.length === 0)).toBe(true)
+  })
+
+  it('keeps a clarification agreement held without creating an assignment or match', () => {
+    const fixture = createClarificationFixture()
+    const state = reduceFixture(fixture)
+    const task = deriveTaskViews(state.normalized)[0]
+    const eventTypes = state.normalized.items.map(({ type }) => type)
+
+    expect(task).toMatchObject({
+      status: '정보 보류',
+      clarificationCandidateId: 'candidate_happy_001',
+      clarificationOutcome: 'conversation_agreed',
+      clarificationRequesterMessage: '가상 이웃 하나: 정보 확인 대화에 동의했습니다.',
+      assignment: null,
+      matchedCandidateId: null
+    })
+    expect(eventTypes).toContain('clarification.invited')
+    expect(eventTypes).toContain('clarification.responded')
+    expect(eventTypes).not.toContain('assignments.planned')
+    expect(eventTypes).not.toContain('match.confirmed')
+    expect(state.result?.taskResults[0]).toMatchObject({ status: 'held' })
   })
 
   it('names an assigned neighbour only when a ranking event introduced them', () => {

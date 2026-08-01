@@ -546,6 +546,11 @@ fieldset legend,
   gap: 16px;
 }
 
+.participant-split.is-requester-only {
+  grid-template-columns: minmax(0, 760px);
+  justify-content: center;
+}
+
 /* A split request keeps the requester top left and fills the other cells with helpers. */
 .participant-split .requester-screen {
   grid-column: 1;
@@ -816,6 +821,55 @@ fieldset legend,
   font-size: 13px;
   line-height: 1.7;
   word-break: keep-all;
+}
+
+.clarification-requester-results {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 520px);
+  margin: 24px auto 0;
+}
+
+.clarification-result {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 16px 18px;
+  border: 1px solid rgba(32, 48, 42, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  text-align: left;
+}
+
+.clarification-result > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--leaf);
+  color: white;
+  font-weight: 800;
+}
+
+.clarification-result.is-rejected > span {
+  background: #826f62;
+}
+
+.clarification-result small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.clarification-result p {
+  margin: 5px 0 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
 }
 
 .matched-neighbor {
@@ -1837,6 +1891,31 @@ progress::-moz-progress-bar {
 
 .plan-update-card footer span {
   margin-left: auto;
+}
+
+.clarification-event-result {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 13px 14px;
+  border-left: 3px solid var(--leaf);
+  border-radius: 0 12px 12px 0;
+  background: var(--mint);
+}
+
+.clarification-event-result span,
+.clarification-event-result small {
+  color: var(--leaf-dark);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.clarification-event-result p {
+  margin: 0;
+  color: #33493d;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .unknown-event-copy code {
