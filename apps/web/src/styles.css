@@ -1535,6 +1535,31 @@ progress::-moz-progress-bar {
   list-style: none;
 }
 
+.timeline-group-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 12px 0 8px 42px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: var(--leaf-dark);
+  background: var(--mint);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.timeline-group-header code {
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: rgba(255, 253, 247, 0.72);
+  font-size: 8px;
+}
+
+.timeline-group-header .timeline-assignment-id {
+  color: #59665f;
+}
+
 .timeline-item {
   display: grid;
   grid-template-columns: 28px 14px 1fr;

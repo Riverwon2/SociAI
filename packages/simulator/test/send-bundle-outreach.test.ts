@@ -28,7 +28,11 @@ const bundle: SendBundleOutreachCall['bundle'] = {
   reasonCodes: ['single_task_bundle']
 }
 
-function outreachCall(attempt: 1 | 2 | 3, seed = 'retry-path-v1'): SendBundleOutreachCall {
+function outreachCall(
+  attempt: 1 | 2,
+  seed = 'retry-path-v1',
+  candidateId = `candidate_bundle_outreach_${attempt}`
+): SendBundleOutreachCall {
   return {
     ...context,
     toolCallId: `call_bundle_outreach_${attempt}`,
@@ -36,7 +40,7 @@ function outreachCall(attempt: 1 | 2 | 3, seed = 'retry-path-v1'): SendBundleOut
       ...context,
       assignmentId: `assignment_bundle_outreach_${attempt}`,
       bundleId: bundle.bundleId,
-      candidateId: `candidate_bundle_outreach_${attempt}`,
+      candidateId,
       taskIds: bundle.taskIds,
       scheduledWindow: bundle.scheduledWindow,
       attempt,
@@ -50,16 +54,37 @@ function outreachCall(attempt: 1 | 2 | 3, seed = 'retry-path-v1'): SendBundleOut
 }
 
 describe('deterministic bundle outreach simulator', () => {
-  it('uses fixture outcomes for the first candidate and its one retry', () => {
-    const results = [1, 2, 3].map((attempt) =>
-      sendBundleOutreach(outreachCall(attempt as 1 | 2 | 3))
-    )
+  it('uses candidate-ID fixtures instead of the outreach attempt order', () => {
+    const results = [
+      sendBundleOutreach(outreachCall(2, 'retry-path-v1', 'candidate-alpha')),
+      sendBundleOutreach(outreachCall(1, 'retry-path-v1', 'candidate-beta'))
+    ]
 
     expect(results.map((result) => result.ok && result.data.outcome)).toEqual([
       'rejected',
-      'accepted',
       'accepted'
     ])
+  })
+
+  it('uses a deterministic fallback for a candidate absent from a known fixture', () => {
+    const first = sendBundleOutreach(
+      outreachCall(1, 'retry-path-v1', 'candidate-not-in-fixture')
+    )
+    const second = sendBundleOutreach(
+      outreachCall(1, 'retry-path-v1', 'candidate-not-in-fixture')
+    )
+
+    expect(second).toEqual(first)
+  })
+
+  it('rejects an outreach attempt beyond the two-candidate bundle limit', () => {
+    const secondAttempt = outreachCall(2)
+    const thirdAttempt: SendBundleOutreachCall = {
+      ...secondAttempt,
+      assignment: { ...secondAttempt.assignment, attempt: 3 }
+    }
+
+    expect(() => sendBundleOutreach(thirdAttempt)).toThrow(RangeError)
   })
 
   it('returns a contract-valid response within the ten-second demo budget', () => {
@@ -70,8 +95,12 @@ describe('deterministic bundle outreach simulator', () => {
   })
 
   it('retries once after a ten-second timeout and then accepts', () => {
-    const timeout = sendBundleOutreach(outreachCall(1, 'timeout-retry-path-v1'))
-    const accepted = sendBundleOutreach(outreachCall(2, 'timeout-retry-path-v1'))
+    const timeout = sendBundleOutreach(
+      outreachCall(2, 'timeout-retry-path-v1', 'candidate-alpha')
+    )
+    const accepted = sendBundleOutreach(
+      outreachCall(1, 'timeout-retry-path-v1', 'candidate-beta')
+    )
 
     expect(timeout).toMatchObject({
       ok: true,

@@ -2,11 +2,19 @@ import { deterministicInteger } from './seeded-random.js'
 
 export type SimulatedOutcome = 'accepted' | 'rejected' | 'timed_out' | 'cancelled'
 
-const KNOWN_SCENARIOS: Readonly<Record<string, readonly SimulatedOutcome[]>> = Object.freeze({
-  'happy-path-v1': ['accepted'],
-  'retry-path-v1': ['rejected', 'accepted'],
-  'timeout-retry-path-v1': ['timed_out', 'accepted'],
-  'mixed-risk-v1': ['accepted']
+type CandidateResponseFixture = Readonly<Record<string, SimulatedOutcome>>
+
+const KNOWN_SCENARIOS: Readonly<Record<string, CandidateResponseFixture>> = Object.freeze({
+  'happy-path-v1': Object.freeze({ 'candidate-alpha': 'accepted' }),
+  'retry-path-v1': Object.freeze({
+    'candidate-alpha': 'rejected',
+    'candidate-beta': 'accepted'
+  }),
+  'timeout-retry-path-v1': Object.freeze({
+    'candidate-alpha': 'timed_out',
+    'candidate-beta': 'accepted'
+  }),
+  'mixed-risk-v1': Object.freeze({ 'candidate-alpha': 'accepted' })
 })
 
 export function determineResponse(
@@ -14,7 +22,7 @@ export function determineResponse(
   candidateId: string,
   attempt: number
 ): SimulatedOutcome {
-  const known = KNOWN_SCENARIOS[seed]?.[attempt - 1]
+  const known = KNOWN_SCENARIOS[seed]?.[candidateId]
   if (known !== undefined) return known
 
   const bucket = deterministicInteger(`${seed}:${candidateId}:${attempt}`, 100)

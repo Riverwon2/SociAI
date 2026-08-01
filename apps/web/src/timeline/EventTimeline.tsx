@@ -1,6 +1,8 @@
+import { Fragment } from 'react'
 import type { AgentEvent } from '@30-minute-exchange/contracts'
 import type { ConsumableAgentEvent } from '@30-minute-exchange/event-stream'
 
+import { deriveTimelineDisplayGroups, type TimelineDisplayGroup } from './timeline-groups.js'
 
 interface EventTimelineProps {
   readonly items: readonly ConsumableAgentEvent[]
@@ -28,6 +30,13 @@ const eventLabels: Record<AgentEvent['type'], string> = {
 }
 
 export function EventTimeline({ items }: EventTimelineProps) {
+  const groupStarts = new Map(
+    deriveTimelineDisplayGroups(items).flatMap((group) => {
+      const firstItem = group.items[0]
+      return firstItem === undefined ? [] : [[firstItem.eventId, group] as const]
+    })
+  )
+
   return (
     <section className="panel timeline-panel" aria-labelledby="timeline-heading">
       <div className="panel-heading">
@@ -40,6 +49,8 @@ export function EventTimeline({ items }: EventTimelineProps) {
 
       <ol className="timeline-list" aria-live="polite">
         {items.map((item) => (
+          <Fragment key={item.eventId}>
+            <TimelineGroupHeader group={groupStarts.get(item.eventId)} />
                 <li
                   className={`timeline-item ${item.type === 'plan.updated' ? 'timeline-item--plan' : ''}`}
                   key={item.eventId}
@@ -69,10 +80,33 @@ export function EventTimeline({ items }: EventTimelineProps) {
                     )}
                   </div>
                 </li>
+          </Fragment>
         ))}
       </ol>
       {items.length === 0 && <p className="empty-state">첫 이벤트를 기다리고 있습니다.</p>}
     </section>
+  )
+}
+
+function TimelineGroupHeader({ group }: { readonly group: TimelineDisplayGroup | undefined }) {
+  if (group === undefined || group.kind === 'run') return null
+
+  return (
+    <li
+      className="timeline-group-header"
+      data-timeline-group={group.key}
+      data-bundle-ids={group.bundleIds.join(',') || undefined}
+    >
+      <span>{group.kind === 'task' ? 'TASK' : 'BUNDLE'}</span>
+      {group.bundleIds.map((bundleId) => (
+        <code key={bundleId}>{bundleId}</code>
+      ))}
+      {group.assignmentIds.map((assignmentId) => (
+        <code className="timeline-assignment-id" key={assignmentId}>
+          {assignmentId}
+        </code>
+      ))}
+    </li>
   )
 }
 

@@ -10,9 +10,13 @@ import { deterministicInteger } from './seeded-random.js'
 import { advanceVirtualTimeSeconds } from './virtual-clock.js'
 
 export const DEFAULT_OUTREACH_TIMEOUT_SECONDS = 10
+const MAX_BUNDLE_OUTREACH_ATTEMPTS = 2
 
 export function sendBundleOutreach(input: SendBundleOutreachCall): SendBundleOutreachResult {
   const call = SendBundleOutreachCallSchema.parse(input)
+  if (call.assignment.attempt > MAX_BUNDLE_OUTREACH_ATTEMPTS) {
+    throw new RangeError('A bundle supports at most two candidate outreach attempts')
+  }
   const outcome = determineResponse(call.seed, call.assignment.candidateId, call.assignment.attempt)
   const virtualElapsedSeconds =
     outcome === 'timed_out'
