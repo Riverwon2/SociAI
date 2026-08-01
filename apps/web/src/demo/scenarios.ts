@@ -2,13 +2,14 @@ import { DemoScenarioFixtureSchema, type DemoScenarioFixture } from '@30-minute-
 
 import happyPath from '../../../../packages/contracts/examples/first-candidate-accepts.json' with { type: 'json' }
 import mixedRisk from '../../../../packages/contracts/examples/mixed-risk-partial-match.json' with { type: 'json' }
+import multiHelperSplit from '../../../../packages/contracts/examples/multi-helper-split.json' with { type: 'json' }
 import retryPath from '../../../../packages/contracts/examples/reject-timeout-accept.json' with { type: 'json' }
 
 export interface ScenarioPresentation {
   readonly eyebrow: string
   readonly title: string
   readonly description: string
-  readonly accent: 'leaf' | 'sun' | 'plum'
+  readonly accent: 'leaf' | 'sun' | 'plum' | 'sky'
 }
 
 export interface DemoScenario {
@@ -34,10 +35,16 @@ const scenarioPresentations: Record<DemoScenarioFixture['scenarioId'], ScenarioP
     title: '위험한 일만 안전하게 제외',
     description: '약 복용 보조는 막고 문서 전달은 계속 연결해요.',
     accent: 'plum'
+  },
+  multi_helper_split: {
+    eyebrow: '다중 이웃',
+    title: '시간이 떨어진 일은 나눠서 배정',
+    description: '한 번에 묶을 수 없는 두 작업을 이웃 두 명에게 나눠 맡겨요.',
+    accent: 'sky'
   }
 }
 
-const parsedFixtures = [happyPath, retryPath, mixedRisk].map((value) =>
+const parsedFixtures = [happyPath, retryPath, mixedRisk, multiHelperSplit].map((value) =>
   DemoScenarioFixtureSchema.parse(value)
 )
 

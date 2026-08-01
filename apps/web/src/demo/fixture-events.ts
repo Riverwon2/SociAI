@@ -79,6 +79,10 @@ function eventPayload(type: AgentEvent['type'], context: BuildContext): Record<s
       return sufficiencyPayload(context)
     case 'task.held':
       return heldPayload(context)
+    case 'bundles.planned':
+      return bundlesPayload(context)
+    case 'assignments.planned':
+      return assignmentsPayload(context)
     case 'candidates.ranked':
       return candidatesPayload(context)
     case 'outreach.sent':
@@ -159,6 +163,31 @@ function heldPayload(context: BuildContext) {
       reasonCodes: ['required_information_missing'],
       missingInformation: [{ code: 'details', message: '필수 정보가 부족합니다.' }],
       guidance: '추가 질문 없이 해당 작업만 보류합니다.'
+    }
+  }
+}
+
+function bundlesPayload(context: BuildContext) {
+  const bundles = requireFixtureRecords(context.fixture.expectedBundles, 'expectedBundles')
+  return {
+    data: {
+      bundles: bundles.map((bundle) => ({ ...bundle, requestId: context.request.requestId })),
+      splitReasonCodes: [...new Set(bundles.flatMap(({ reasonCodes }) => reasonCodes))]
+    }
+  }
+}
+
+function assignmentsPayload(context: BuildContext) {
+  const assignments = requireFixtureRecords(
+    context.fixture.expectedAssignments,
+    'expectedAssignments'
+  )
+  return {
+    data: {
+      assignments: assignments.map((assignment) => ({
+        ...assignment,
+        requestId: context.request.requestId
+      }))
     }
   }
 }
@@ -339,6 +368,13 @@ function requireTask(tasks: readonly Task[], taskId: string): Task {
   return task
 }
 
+function requireFixtureRecords<T>(records: readonly T[] | undefined, label: string): readonly T[] {
+  if (records === undefined || records.length === 0) {
+    throw new Error(`Fixture is missing ${label} for a planning event`)
+  }
+  return records
+}
+
 function requireItem<T>(items: readonly T[], index: number, label: string): T {
   const item = items[index]
   if (item === undefined) throw new Error(`Fixture is missing ${label} at index ${index}`)
@@ -358,6 +394,8 @@ function eventMessage(type: AgentEvent['type']): string {
       'safety.checked': '작업별 안전성을 확인했습니다.',
       'sufficiency.checked': '진행에 필요한 정보가 충분한지 확인했습니다.',
       'task.held': '정보가 부족한 작업을 보류했습니다.',
+      'bundles.planned': '한 이웃이 함께 처리할 수 있는 작업끼리 묶었습니다.',
+      'assignments.planned': '묶음별로 도와줄 이웃을 배정했습니다.',
       'candidates.ranked': '조건에 맞는 이웃 후보를 정렬했습니다.',
       'outreach.sent': '가장 적합한 이웃에게 도움을 요청했습니다.',
       'neighbor.replied': '이웃의 응답을 확인했습니다.',

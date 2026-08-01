@@ -12,6 +12,8 @@ const eventLabels: Record<AgentEvent['type'], string> = {
   'safety.checked': '안전 확인',
   'sufficiency.checked': '정보 확인',
   'task.held': '작업 보류',
+  'bundles.planned': '작업 묶음 계획',
+  'assignments.planned': '이웃 배정 계획',
   'candidates.ranked': '후보 정렬',
   'outreach.sent': '섭외 발송',
   'neighbor.replied': '이웃 응답',

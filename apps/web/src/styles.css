@@ -22,6 +22,7 @@
   --mint: #cbe7d7;
   --sun: #f1b84b;
   --plum: #684258;
+  --sky: #3d647f;
   --danger: #a54d3c;
   --line: rgba(32, 48, 42, 0.14);
   --shadow: 0 22px 70px rgba(43, 54, 45, 0.11);
@@ -372,6 +373,10 @@ fieldset legend,
 
 .scenario-option--plum .scenario-number {
   background: var(--plum);
+}
+
+.scenario-option--sky .scenario-number {
+  background: var(--sky);
 }
 
 .scenario-option span:last-child {
