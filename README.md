@@ -4,9 +4,9 @@
 
 ## 병렬 개발 시작점
 
-- A는 `apps/api`에서 오케스트레이션, OpenAI, 실행 상태, 도구 어댑터와 이벤트 전송을 담당합니다.
-- B는 `packages/contracts`, `packages/decision-engine`, `packages/demo-data`를 담당합니다.
-- C는 `apps/web`, `tests/e2e`, 데모 화면을 담당합니다.
+- A는 `apps/server`에서 오케스트레이션, OpenAI, 실행 상태, 도구 어댑터와 서버 이벤트 발행을 담당합니다.
+- B는 `packages/decisions`, `packages/simulator`에서 안전·충분성·랭킹과 결정론적 시뮬레이션을 담당합니다.
+- C는 `packages/contracts`, `packages/event-stream`, `apps/web`, `tests/e2e`에서 공용 계약, 이벤트 전송 유틸, UI와 데모를 담당합니다.
 - 모든 영역은 `@30-minute-exchange/contracts`만 공유 타입의 원본으로 사용합니다.
 
 공통 규약은 [협업 계약](docs/engineering/collaboration-contract.md), 공개 스키마와 fixture 사용법은 [contracts README](packages/contracts/README.md)를 참고합니다.
@@ -21,6 +21,12 @@ pnpm typecheck
 pnpm test
 pnpm test:coverage
 pnpm build
+pnpm verify
 ```
 
-라이브 OpenAI 경로를 구현할 때만 `.env.example`을 복사해 로컬 `.env`를 만들고 실제 키를 설정합니다. `.env`는 커밋하지 않습니다.
+라이브 OpenAI 경로를 구현할 때 루트 `.env`에 `OPENAI_API_KEY`와 필요한 모델 설정을 입력합니다. `.env`는 커밋하지 않습니다.
+
+```dotenv
+OPENAI_API_KEY=
+OPENAI_MODEL=
+```

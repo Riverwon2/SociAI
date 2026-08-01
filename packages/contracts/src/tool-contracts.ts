@@ -13,6 +13,7 @@ import {
   ToolCallIdSchema
 } from './shared.js'
 import { TaskSchema } from './task.js'
+import { AvailableFactSchema, SufficiencyDecisionSchema } from './sufficiency-decision.js'
 
 const ToolCallContextSchema = z
   .object({
@@ -94,6 +95,29 @@ export const CheckSafetyResultSchema = z
         context.addIssue({
           code: 'custom',
           message: `${field} must match the safety decision context`,
+          path: ['data', field]
+        })
+      }
+    }
+  })
+
+export const CheckSufficiencyCallSchema = ToolCallContextSchema.extend({
+  task: TaskSchema,
+  availableFacts: z.array(AvailableFactSchema).max(100)
+}).superRefine(validateTaskContext)
+export const CheckSufficiencyResultSchema = z
+  .discriminatedUnion('ok', [
+    ToolCallContextSchema.extend({ ok: z.literal(true), data: SufficiencyDecisionSchema }),
+    ToolFailureSchema
+  ])
+  .superRefine((result, context) => {
+    if (!result.ok) return
+
+    for (const field of ['runId', 'requestId', 'taskId'] as const) {
+      if (result[field] !== result.data[field]) {
+        context.addIssue({
+          code: 'custom',
+          message: `${field} must match the sufficiency decision context`,
           path: ['data', field]
         })
       }
@@ -197,6 +221,8 @@ export const ConfirmMatchResultSchema = z.discriminatedUnion('ok', [
 export type ToolError = z.infer<typeof ToolErrorSchema>
 export type CheckSafetyCall = z.infer<typeof CheckSafetyCallSchema>
 export type CheckSafetyResult = z.infer<typeof CheckSafetyResultSchema>
+export type CheckSufficiencyCall = z.infer<typeof CheckSufficiencyCallSchema>
+export type CheckSufficiencyResult = z.infer<typeof CheckSufficiencyResultSchema>
 export type FindCandidatesCall = z.infer<typeof FindCandidatesCallSchema>
 export type FindCandidatesResult = z.infer<typeof FindCandidatesResultSchema>
 export type SendOutreachCall = z.infer<typeof SendOutreachCallSchema>

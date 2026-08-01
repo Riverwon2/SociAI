@@ -1,21 +1,22 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "scenarioId": "first_candidate_accepts",
   "seed": "happy-path-v1",
   "initialRequest": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "requestId": "request_happy_001",
     "helpDescription": "오늘 오후 6시 전 관리실의 가벼운 생필품 상자를 현관 앞까지 전달해 주세요.",
     "timeWindow": {
       "startAt": "2026-08-01T08:00:00.000Z",
       "endAt": "2026-08-01T09:00:00.000Z"
     },
+    "maxActivityDurationMinutes": 30,
     "timeFlexibility": { "kind": "fixed" },
     "activityRegion": {
       "label": "해오름동",
       "approximateLocation": "해오름동 주민센터 인근"
     },
-    "costPolicy": { "choice": "none" },
+    "costPolicy": { "choice": "none", "paymentMethod": "not_applicable" },
     "fallbackPolicy": {
       "allowTimeAdjustment": false,
       "allowPartialCompletion": true,
@@ -24,7 +25,7 @@
   },
   "tasks": [
     {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "runId": "run_happy_001",
       "requestId": "request_happy_001",
       "taskId": "task_happy_001",
@@ -46,7 +47,7 @@
   ],
   "candidates": [
     {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "runId": "run_happy_001",
       "requestId": "request_happy_001",
       "taskId": "task_happy_001",
@@ -82,15 +83,17 @@
   ],
   "expectedRawToolCorrelations": [
     { "toolCallId": "call_happy_safety", "callSequence": 1, "resultSequence": 2 },
-    { "toolCallId": "call_happy_candidates", "callSequence": 3, "resultSequence": 4 },
-    { "toolCallId": "call_happy_outreach", "callSequence": 5, "resultSequence": 6 },
-    { "toolCallId": "call_happy_confirm", "callSequence": 7, "resultSequence": 8 }
+    { "toolCallId": "call_happy_sufficiency", "callSequence": 3, "resultSequence": 4 },
+    { "toolCallId": "call_happy_candidates", "callSequence": 5, "resultSequence": 6 },
+    { "toolCallId": "call_happy_outreach", "callSequence": 7, "resultSequence": 8 },
+    { "toolCallId": "call_happy_confirm", "callSequence": 9, "resultSequence": 10 }
   ],
   "expectedEventTypes": [
     "request.created",
     "plan.created",
     "task.created",
     "safety.checked",
+    "sufficiency.checked",
     "candidates.ranked",
     "outreach.sent",
     "neighbor.replied",
@@ -98,7 +101,7 @@
     "request.completed"
   ],
   "expectedFinalResult": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "runId": "run_happy_001",
     "requestId": "request_happy_001",
     "status": "fully_matched",

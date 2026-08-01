@@ -69,6 +69,13 @@ export const DemoScenarioFixtureSchema = z
           path: ['tasks', index]
         })
       }
+      if (task.estimatedDurationMinutes > fixture.initialRequest.maxActivityDurationMinutes) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Task duration cannot exceed the initial request maximum',
+          path: ['tasks', index, 'estimatedDurationMinutes']
+        })
+      }
     }
 
     for (const [index, candidate] of fixture.candidates.entries()) {
@@ -150,6 +157,14 @@ export const DemoScenarioFixtureSchema = z
       context.addIssue({
         code: 'custom',
         message: 'A scenario must end with request.completed',
+        path: ['expectedEventTypes']
+      })
+    }
+
+    if (!fixture.expectedEventTypes.includes('sufficiency.checked')) {
+      context.addIssue({
+        code: 'custom',
+        message: 'A demo scenario with a safe task must include sufficiency.checked',
         path: ['expectedEventTypes']
       })
     }

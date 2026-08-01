@@ -3,13 +3,14 @@
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "scripts": {
-    "build": "pnpm --filter @30-minute-exchange/contracts build",
-    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json packages/contracts docs/engineering",
-    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json packages/contracts docs/engineering",
-    "lint": "eslint packages --max-warnings=0",
-    "test": "pnpm --filter @30-minute-exchange/contracts test",
-    "test:coverage": "pnpm --filter @30-minute-exchange/contracts test:coverage",
-    "typecheck": "pnpm --filter @30-minute-exchange/contracts typecheck"
+    "build": "pnpm -r --if-present run build",
+    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.mjs .github README.md PROJECT.md packages docs/engineering",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.mjs .github README.md PROJECT.md packages docs/engineering",
+    "lint": "eslint \"{apps,packages}/**/*.{ts,tsx}\" --max-warnings=0 --no-error-on-unmatched-pattern",
+    "test": "pnpm -r --if-present run test",
+    "test:coverage": "pnpm -r --if-present run test:coverage",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:coverage && pnpm build"
   },
   "engines": {
     "node": ">=22.0.0"

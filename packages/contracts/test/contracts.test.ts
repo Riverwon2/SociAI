@@ -5,6 +5,8 @@ import {
   CandidateSchema,
   CheckSafetyCallSchema,
   CheckSafetyResultSchema,
+  CheckSufficiencyCallSchema,
+  CheckSufficiencyResultSchema,
   ConfirmMatchResultSchema,
   DemoScenarioFixtureSchema,
   FinalResultSchema,
@@ -14,8 +16,10 @@ import {
   SafetyDecisionSchema,
   SendOutreachCallSchema,
   SendOutreachResultSchema,
+  SufficiencyDecisionSchema,
   TaskSchema,
   calculateCandidateScore,
+  createInitialRequestSchemaForDate,
   parseAgentEventSafely,
   type JsonValue
 } from '../src/index.js'
@@ -37,13 +41,14 @@ const region = {
 } as const
 
 const initialRequest = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   requestId: identifiers.requestId,
   helpDescription: '현관 앞 생필품 상자를 대신 수령해 주세요.',
   timeWindow,
+  maxActivityDurationMinutes: 30,
   timeFlexibility: { kind: 'fixed' },
   activityRegion: region,
-  costPolicy: { choice: 'none' },
+  costPolicy: { choice: 'none', paymentMethod: 'not_applicable' },
   fallbackPolicy: {
     allowTimeAdjustment: false,
     allowPartialCompletion: true,
@@ -52,7 +57,7 @@ const initialRequest = {
 } as const
 
 const task = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   ...identifiers,
   title: '생필품 상자 수령',
   description: '관리실에서 생필품 상자를 수령해 현관 앞에 전달한다.',
@@ -65,7 +70,7 @@ const task = {
 } as const
 
 const candidate = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   ...identifiers,
   candidateId: 'candidate_demo_001',
   displayName: '가상 이웃 하나',
@@ -115,13 +120,38 @@ describe('shared domain contracts', () => {
     expect(() => InitialRequestSchema.parse(invalid)).toThrow()
   })
 
-  it('requires a payment choice when a cost is expected', () => {
+  it('rejects a paid request at the MVP boundary', () => {
     const invalid = {
       ...initialRequest,
       costPolicy: { choice: 'required' }
     }
 
     expect(() => InitialRequestSchema.parse(invalid)).toThrow()
+  })
+
+  it('rejects a request whose maximum activity duration exceeds 30 minutes', () => {
+    expect(() =>
+      InitialRequestSchema.parse({ ...initialRequest, maxActivityDurationMinutes: 31 })
+    ).toThrow()
+  })
+
+  it('rejects an initial request time window that crosses a local calendar day', () => {
+    const invalid = {
+      ...initialRequest,
+      timeWindow: {
+        startAt: '2026-08-01T23:30:00+09:00',
+        endAt: '2026-08-02T00:00:00+09:00'
+      }
+    }
+
+    expect(() => InitialRequestSchema.parse(invalid)).toThrow()
+  })
+
+  it('validates that an initial request is scheduled for the injected local date', () => {
+    const todaySchema = createInitialRequestSchemaForDate('2026-08-01')
+
+    expect(todaySchema.parse(initialRequest)).toEqual(initialRequest)
+    expect(() => createInitialRequestSchemaForDate('2026-08-02').parse(initialRequest)).toThrow()
   })
 
   it('rejects a time window whose end is not after its start', () => {
@@ -138,13 +168,12 @@ describe('shared domain contracts', () => {
 
   it('keeps safety level separate from deterministic action', () => {
     const decision = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       ...identifiers,
       level: 'high',
       action: 'block',
       reasonCodes: ['medical_procedure'],
       conditions: [],
-      missingInformation: [],
       guidance: '일반 이웃 매칭에서 제외합니다.'
     } as const
 
@@ -153,16 +182,48 @@ describe('shared domain contracts', () => {
 
   it('rejects an action that contradicts the safety level', () => {
     const invalid = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       ...identifiers,
       level: 'low',
       action: 'block',
       reasonCodes: ['ordinary_life_support'],
-      conditions: [],
-      missingInformation: []
+      conditions: []
     }
 
     expect(() => SafetyDecisionSchema.parse(invalid)).toThrow()
+  })
+
+  it('keeps information sufficiency separate from safety', () => {
+    const decision = {
+      schemaVersion: 2,
+      ...identifiers,
+      status: 'insufficient',
+      action: 'hold',
+      reasonCodes: ['item_weight_missing'],
+      missingInformation: [
+        {
+          code: 'item_weight',
+          field: 'optionalNotes',
+          message: '물품 무게 정보가 필요합니다.'
+        }
+      ],
+      guidance: '해당 태스크만 보류합니다.'
+    } as const
+
+    expect(SufficiencyDecisionSchema.parse(decision)).toEqual(decision)
+  })
+
+  it('rejects a sufficient decision that still contains missing information', () => {
+    const invalid = {
+      schemaVersion: 2,
+      ...identifiers,
+      status: 'sufficient',
+      action: 'proceed',
+      reasonCodes: ['required_information_present'],
+      missingInformation: [{ code: 'weight', message: '무게 정보 누락' }]
+    }
+
+    expect(() => SufficiencyDecisionSchema.parse(invalid)).toThrow()
   })
 
   it('validates the documented weighted candidate score', () => {
@@ -186,7 +247,7 @@ describe('shared domain contracts', () => {
 describe('event contracts', () => {
   it('requires the complete plan.updated evidence payload', () => {
     const event = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       eventId: 'event_demo_001',
       ...identifiers,
       sequence: 8,
@@ -215,7 +276,7 @@ describe('event contracts', () => {
       arguments: '{"taskId":"task_demo_001"}'
     }
     const event = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       eventId: 'raw_event_demo_001',
       ...identifiers,
       toolCallId: 'tool_call_demo_001',
@@ -231,9 +292,33 @@ describe('event contracts', () => {
     expect(JSON.parse(JSON.stringify(parsed.raw))).toEqual(raw)
   })
 
+  it('validates a task-scoped sufficiency.checked event', () => {
+    const decision = {
+      schemaVersion: 2,
+      ...identifiers,
+      status: 'sufficient',
+      action: 'proceed',
+      reasonCodes: ['required_information_present'],
+      missingInformation: []
+    } as const
+    const event = {
+      schemaVersion: 2,
+      eventId: 'event_sufficiency_001',
+      ...identifiers,
+      sequence: 5,
+      occurredAt: '2026-08-01T09:00:20.000Z',
+      type: 'sufficiency.checked',
+      message: '필수 정보가 충분합니다.',
+      isSimulation: false,
+      data: { decision }
+    } as const
+
+    expect(AgentEventSchema.parse(event)).toEqual(event)
+  })
+
   it('lets consumers ignore an unknown normalized event without crashing', () => {
     const unknownEvent = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       eventId: 'event_future_001',
       runId: identifiers.runId,
       requestId: identifiers.requestId,
@@ -250,7 +335,7 @@ describe('event contracts', () => {
 
   it('requires taskId on task-scoped events', () => {
     const invalid = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       eventId: 'event_timeout_001',
       runId: identifiers.runId,
       requestId: identifiers.requestId,
@@ -271,7 +356,7 @@ describe('event contracts', () => {
 
   it('rejects a task event whose payload belongs to another task', () => {
     const invalid = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       eventId: 'event_task_002',
       ...identifiers,
       sequence: 3,
@@ -291,7 +376,7 @@ describe('event contracts', () => {
 describe('tool boundaries', () => {
   it('validates common call metadata and safety input', () => {
     const call = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       ...identifiers,
       toolCallId: 'tool_call_safety_001',
       task
@@ -302,7 +387,7 @@ describe('tool boundaries', () => {
 
   it('rejects tool metadata that does not match its task', () => {
     const call = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       ...identifiers,
       requestId: 'different_request',
       toolCallId: 'tool_call_safety_002',
@@ -314,28 +399,60 @@ describe('tool boundaries', () => {
 
   it('rejects a safety result whose data belongs to another task', () => {
     const invalid = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       ...identifiers,
       toolCallId: 'tool_call_safety_003',
       ok: true,
       data: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         ...identifiers,
         taskId: 'another_task',
         level: 'low',
         action: 'proceed',
         reasonCodes: ['ordinary_life_support'],
-        conditions: [],
-        missingInformation: []
+        conditions: []
       }
     }
 
     expect(() => CheckSafetyResultSchema.parse(invalid)).toThrow()
   })
 
+  it('validates the separate sufficiency tool boundary', () => {
+    const call = {
+      schemaVersion: 2,
+      ...identifiers,
+      toolCallId: 'tool_call_sufficiency_001',
+      task,
+      availableFacts: [
+        {
+          code: 'item_weight',
+          value: 'light',
+          source: 'initial_request'
+        }
+      ]
+    } as const
+    const result = {
+      schemaVersion: 2,
+      ...identifiers,
+      toolCallId: call.toolCallId,
+      ok: true,
+      data: {
+        schemaVersion: 2,
+        ...identifiers,
+        status: 'sufficient',
+        action: 'proceed',
+        reasonCodes: ['required_information_present'],
+        missingInformation: []
+      }
+    } as const
+
+    expect(CheckSufficiencyCallSchema.parse(call)).toEqual(call)
+    expect(CheckSufficiencyResultSchema.parse(result)).toEqual(result)
+  })
+
   it('treats an empty candidate pool as a valid business result input', () => {
     const call = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       ...identifiers,
       toolCallId: 'tool_call_candidates_001',
       task,
@@ -347,7 +464,7 @@ describe('tool boundaries', () => {
 
   it('enforces the three-attempt and ten-minute outreach policy', () => {
     const valid = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       ...identifiers,
       toolCallId: 'tool_call_outreach_001',
       task,
@@ -370,7 +487,7 @@ describe('tool boundaries', () => {
 
   it('rejects candidate mismatches in outreach and match results', () => {
     const context = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       ...identifiers,
       toolCallId: 'tool_call_candidate_result_001',
       candidateId: candidate.candidateId,
@@ -407,7 +524,7 @@ describe('tool boundaries', () => {
 describe('result and fixture consistency', () => {
   it('rejects fully_matched when any task is not matched', () => {
     const invalid = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       runId: identifiers.runId,
       requestId: identifiers.requestId,
       status: 'fully_matched',
@@ -437,7 +554,7 @@ describe('result and fixture consistency', () => {
 
   it('rejects a matched task without a matched candidate', () => {
     const invalid = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       runId: identifiers.runId,
       requestId: identifiers.requestId,
       status: 'fully_matched',
@@ -467,7 +584,7 @@ describe('result and fixture consistency', () => {
 
   it('rejects a candidate id on an unmatched task', () => {
     const invalid = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       runId: identifiers.runId,
       requestId: identifiers.requestId,
       status: 'unmatched',
@@ -498,7 +615,7 @@ describe('result and fixture consistency', () => {
 
   it('accepts a contract-valid shared scenario fixture', () => {
     const finalResult = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       runId: identifiers.runId,
       requestId: identifiers.requestId,
       status: 'fully_matched',
@@ -525,7 +642,7 @@ describe('result and fixture consistency', () => {
     } as const
 
     const fixture = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       scenarioId: 'first_candidate_accepts',
       seed: 'happy-path-v1',
       initialRequest,
@@ -551,6 +668,7 @@ describe('result and fixture consistency', () => {
         'plan.created',
         'task.created',
         'safety.checked',
+        'sufficiency.checked',
         'candidates.ranked',
         'outreach.sent',
         'neighbor.replied',
