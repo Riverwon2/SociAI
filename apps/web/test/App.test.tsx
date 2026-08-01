@@ -29,7 +29,7 @@ describe('role 3 demo UI', () => {
     window.sessionStorage.clear()
   })
 
-  it('submits once, removes the input form, and reaches a full match', () => {
+  it('waits for the helper to accept before reaching a full match', async () => {
     render(<App replayIntervalMs={1} />)
 
     fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
@@ -43,7 +43,16 @@ describe('role 3 demo UI', () => {
       screen.getByRole('heading', { name: '요청을 안전하게 정리하고 있어요' })
     ).toBeInTheDocument()
 
-    act(() => vi.runAllTimers())
+    await advanceReplayUntilPause()
+
+    expect(screen.getByRole('heading', { name: '우리 동네에 도움이 필요해요' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '모든 도움이 연결됐어요' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '거절' }))
+    expect(screen.getByRole('status')).toHaveTextContent('수락을 눌러')
+    expect(screen.queryByRole('heading', { name: '모든 도움이 연결됐어요' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: '수락' }))
+    await advanceReplayUntilPause()
 
     expect(screen.getByRole('heading', { name: '모든 도움이 연결됐어요' })).toBeInTheDocument()
     expect(screen.getByText('가상 이웃 하나')).toBeInTheDocument()
@@ -56,12 +65,21 @@ describe('role 3 demo UI', () => {
     expect(screen.getByRole('heading', { name: '도움을 완료했어요' })).toBeInTheDocument()
   })
 
-  it('shows two plan revisions before the third candidate succeeds', () => {
+  it('requires reject, timeout, and accept interactions before the third candidate succeeds', async () => {
     render(<App replayIntervalMs={1} />)
     fireEvent.click(screen.getByRole('button', { name: /거절과 무응답 뒤 재섭외/ }))
     fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
 
-    act(() => vi.runAllTimers())
+    await advanceReplayUntilPause()
+    fireEvent.click(screen.getByRole('button', { name: '거절' }))
+
+    await advanceReplayUntilPause()
+    expect(screen.getByRole('button', { name: '응답하지 않고 시간 보내기' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '응답하지 않고 시간 보내기' }))
+
+    await advanceReplayUntilPause()
+    fireEvent.click(screen.getByRole('button', { name: '수락' }))
+    await advanceReplayUntilPause()
 
     expect(screen.getAllByText('계획 갱신')).toHaveLength(2)
     expect(screen.getByText('candidate_rejected')).toBeInTheDocument()
@@ -71,12 +89,14 @@ describe('role 3 demo UI', () => {
     expect(screen.getByRole('heading', { name: '모든 도움이 연결됐어요' })).toBeInTheDocument()
   })
 
-  it('renders a partial match without discarding the safe task', () => {
+  it('renders a partial match without discarding the safe task', async () => {
     render(<App replayIntervalMs={1} />)
     fireEvent.click(screen.getByRole('button', { name: /위험한 일만 안전하게 제외/ }))
     fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
 
-    act(() => vi.runAllTimers())
+    await advanceReplayUntilPause()
+    fireEvent.click(screen.getByRole('button', { name: '수락' }))
+    await advanceReplayUntilPause()
 
     expect(screen.getByRole('heading', { name: '안전한 도움만 연결됐어요' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '문서봉투 전달' })).toBeInTheDocument()
@@ -105,7 +125,7 @@ describe('role 3 demo UI', () => {
     ).toBeInTheDocument()
   })
 
-  it('opens the raw console and can reset only after a final result', () => {
+  it('opens the raw console and can reset only after a final result', async () => {
     const open = vi.spyOn(window, 'open').mockImplementation(() => null)
     render(<App replayIntervalMs={1} />)
 
@@ -116,11 +136,11 @@ describe('role 3 demo UI', () => {
       'noopener,noreferrer'
     )
 
-    fireEvent.click(screen.getByLabelText('시간 조정'))
-    fireEvent.click(screen.getByLabelText('부분 완료'))
     fireEvent.change(screen.getByPlaceholderText(/접근성/), { target: { value: '실내 출입 없음' } })
     fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
-    act(() => vi.runAllTimers())
+    await advanceReplayUntilPause()
+    fireEvent.click(screen.getByRole('button', { name: '수락' }))
+    await advanceReplayUntilPause()
 
     fireEvent.click(screen.getByRole('button', { name: 'Raw 이벤트 화면' }))
     expect(open.mock.calls.at(-1)?.[0]).toContain('runId=run_happy_001')
@@ -132,10 +152,11 @@ describe('role 3 demo UI', () => {
 
   it('shows a boundary error before the one-shot submission', () => {
     render(<App />)
-    fireEvent.change(screen.getByLabelText('최대 활동 시간'), { target: { value: '31' } })
+    const startAt = screen.getByLabelText('시작 시간') as HTMLInputElement
+    fireEvent.change(screen.getByLabelText('종료 시간'), { target: { value: startAt.value } })
     fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent('활동 시간은 1분 이상 30분 이하')
+    expect(screen.getByRole('alert')).toHaveTextContent('시작보다 종료가 늦어야')
     expect(
       screen.getByRole('heading', { name: '오늘 어떤 도움이 필요하세요?' })
     ).toBeInTheDocument()
@@ -316,6 +337,15 @@ describe('role 3 demo UI', () => {
     expect(screen.getByRole('heading', { name: '생필품 상자 수령' })).toBeInTheDocument()
   })
 })
+
+async function advanceReplayUntilPause() {
+  for (let step = 0; step < 100; step += 1) {
+    await act(async () => Promise.resolve())
+    if (vi.getTimerCount() === 0) return
+    await act(async () => vi.runOnlyPendingTimers())
+  }
+  throw new Error('Fixture replay did not reach an interaction pause')
+}
 
 function rawEvent(runId: string, requestId: string): RawToolEvent {
   return {

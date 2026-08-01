@@ -3,14 +3,22 @@ import type { ParticipantDemoView, RequesterDemoStage } from './participant-demo
 interface ParticipantDemoProps {
   readonly view: ParticipantDemoView
   readonly mode: 'live' | 'replay'
+  readonly pendingReplayDecision: FixtureReplayDecision | null
+  readonly replayFeedback: string | null
+  readonly onFixtureDecision: (decision: FixtureReplayDecision) => void
   readonly missionCompleted: boolean
   readonly onMissionComplete: () => void
   readonly onReset: () => void
 }
 
+export type FixtureReplayDecision = 'accepted' | 'rejected' | 'timed_out'
+
 export function ParticipantDemo({
   view,
   mode,
+  pendingReplayDecision,
+  replayFeedback,
+  onFixtureDecision,
   missionCompleted,
   onMissionComplete,
   onReset
@@ -43,7 +51,7 @@ export function ParticipantDemo({
             <div className="requester-message">
               <span className="eyebrow">도움 신청 현황</span>
               <h2 id="requester-heading">{requester.heading}</h2>
-              <p>{requester.description}</p>
+              {requester.description !== null && <p>{requester.description}</p>}
               {view.matchedCandidateName !== null && (
                 <div className="matched-neighbor">
                   <span aria-hidden="true">♥</span>
@@ -73,6 +81,10 @@ export function ParticipantDemo({
           <div className="helper-content" aria-live="polite">
             <HelperPanel
               view={view}
+              mode={mode}
+              pendingReplayDecision={pendingReplayDecision}
+              replayFeedback={replayFeedback}
+              onFixtureDecision={onFixtureDecision}
               missionCompleted={missionCompleted}
               onMissionComplete={onMissionComplete}
             />
@@ -110,6 +122,17 @@ function ScreenChrome({
   )
 }
 
+const orbitHeartPositions = [
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight'
+] as const
+
 function CareFace({ stage }: { readonly stage: RequesterDemoStage }) {
   const settled = ['matched', 'partially_matched'].includes(stage)
   const stopped = ['safety_excluded', 'unmatched', 'failed'].includes(stage)
@@ -118,10 +141,11 @@ function CareFace({ stage }: { readonly stage: RequesterDemoStage }) {
       className={`care-face-wrap ${settled ? 'care-face-wrap--settled' : ''} ${stopped ? 'care-face-wrap--stopped' : ''}`}
       aria-hidden="true"
     >
-      <span className="orbit-heart orbit-heart--one">♥</span>
-      <span className="orbit-heart orbit-heart--two">♥</span>
-      <span className="orbit-heart orbit-heart--three">♥</span>
-      <span className="orbit-heart orbit-heart--four">♥</span>
+      {orbitHeartPositions.map((position) => (
+        <span className={`orbit-heart orbit-heart--${position}`} key={position}>
+          ♥
+        </span>
+      ))}
       <svg className="care-face" viewBox="0 0 180 180">
         <circle cx="90" cy="90" r="70" />
         <path className="care-eye" d="M52 78c7-12 18-12 25 0" />
@@ -154,10 +178,18 @@ function RequesterProgress({ stage }: { readonly stage: RequesterDemoStage }) {
 
 function HelperPanel({
   view,
+  mode,
+  pendingReplayDecision,
+  replayFeedback,
+  onFixtureDecision,
   missionCompleted,
   onMissionComplete
 }: {
   readonly view: ParticipantDemoView
+  readonly mode: 'live' | 'replay'
+  readonly pendingReplayDecision: FixtureReplayDecision | null
+  readonly replayFeedback: string | null
+  readonly onFixtureDecision: (decision: FixtureReplayDecision) => void
   readonly missionCompleted: boolean
   readonly onMissionComplete: () => void
 }) {
@@ -227,18 +259,58 @@ function HelperPanel({
       <h2 id="helper-heading">우리 동네에 도움이 필요해요</h2>
       <RequestSummary card={view.requestCard} />
       <div className="helper-actions" aria-label="도움 요청 응답">
-        <button type="button" disabled>
+        <button
+          className="helper-action-reject"
+          type="button"
+          disabled={mode !== 'replay' || pendingReplayDecision === null}
+          onClick={() => onFixtureDecision('rejected')}
+        >
           거절
         </button>
-        <button type="button" disabled>
+        <button
+          className="helper-action-accept"
+          type="button"
+          disabled={mode !== 'replay' || pendingReplayDecision === null}
+          onClick={() => onFixtureDecision('accepted')}
+        >
           수락
         </button>
       </div>
+      {mode === 'replay' && pendingReplayDecision === 'timed_out' && (
+        <button
+          className="helper-timeout-action"
+          type="button"
+          onClick={() => onFixtureDecision('timed_out')}
+        >
+          응답하지 않고 시간 보내기
+        </button>
+      )}
+      {replayFeedback !== null && (
+        <p className="fixture-action-feedback" role="status">
+          {replayFeedback}
+        </p>
+      )}
       <small className="demo-action-note">
-        fixture가 {view.attempt ?? 1}번째 이웃의 응답을 자동으로 재생하고 있습니다.
+        {fixtureActionNote(mode, pendingReplayDecision, view.attempt)}
       </small>
     </div>
   )
+}
+
+function fixtureActionNote(
+  mode: 'live' | 'replay',
+  pendingDecision: FixtureReplayDecision | null,
+  attempt: number | null
+) {
+  if (mode === 'live') return '실제 수락과 거절 전송은 서버 응답 기능이 연결된 뒤 활성화됩니다.'
+  if (pendingDecision === null) return '다음 응답 장면을 준비하고 있습니다.'
+  return `자동으로 넘어가지 않습니다. ${fixtureDecisionLabel(pendingDecision)}을 눌러 ${attempt ?? 1}번째 응답을 계속하세요.`
+}
+
+function fixtureDecisionLabel(decision: FixtureReplayDecision) {
+  if (decision === 'accepted') return '수락'
+  if (decision === 'rejected') return '거절'
+  return '응답 시간 넘기기'
 }
 
 function RequestSummary({
@@ -293,10 +365,7 @@ function requesterCopy(view: ParticipantDemoView) {
         description: '가까이 있고 시간이 맞는 이웃에게 차례대로 요청하고 있어요.'
       }
     case 'matched':
-      return {
-        heading: '모든 도움이 연결됐어요',
-        description: '수락한 이웃과 약속이 연결됐어요. 약속한 시간에 도움을 받을 수 있어요.'
-      }
+      return { heading: '모든 도움이 연결됐어요', description: null }
     case 'partially_matched':
       return {
         heading: '안전한 도움만 연결됐어요',

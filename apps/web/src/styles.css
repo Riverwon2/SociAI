@@ -416,17 +416,14 @@ fieldset legend,
 }
 
 .field input,
-.field textarea,
-.fixed-value,
-.input-with-unit {
+.field textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fffefa;
 }
 
-.field input,
-.fixed-value {
+.field input {
   min-height: 46px;
   padding: 0 13px;
 }
@@ -441,96 +438,6 @@ fieldset legend,
 .field input:focus,
 .field textarea:focus {
   border-color: var(--leaf);
-}
-
-.fixed-value {
-  display: flex;
-  align-items: center;
-  color: var(--leaf);
-  font-size: 13px;
-  font-weight: 800;
-  background: #eef6f1;
-}
-
-.input-with-unit {
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-}
-
-.input-with-unit input {
-  min-width: 0;
-  border: 0;
-}
-
-.input-with-unit b {
-  padding-right: 14px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.fallback-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 20px;
-  margin: 25px 0;
-  padding: 18px;
-  border-radius: 15px;
-  background: #f3f5ef;
-}
-
-.fallback-options legend {
-  float: left;
-  width: 100%;
-}
-
-.toggle-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.toggle-row input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
-
-.toggle-track {
-  position: relative;
-  width: 35px;
-  height: 20px;
-  border-radius: 999px;
-  background: #c7ccc7;
-  transition: 160ms ease;
-}
-
-.toggle-track::after {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: white;
-  content: '';
-  transition: 160ms ease;
-}
-
-.toggle-row input:checked + .toggle-track {
-  background: var(--leaf);
-}
-
-.toggle-row input:checked + .toggle-track::after {
-  transform: translateX(15px);
-}
-
-.toggle-row input:focus-visible + .toggle-track {
-  outline: 3px solid rgba(47, 107, 82, 0.3);
-  outline-offset: 2px;
 }
 
 .privacy-note,
@@ -736,6 +643,7 @@ fieldset legend,
   width: 250px;
   height: 250px;
   flex: none;
+  --orbit-radius: 116px;
 }
 
 .care-face {
@@ -749,27 +657,27 @@ fieldset legend,
 }
 
 .care-face circle {
-  fill: #fffaf0;
-  stroke: #b67d27;
+  fill: #ffc978;
+  stroke: #e08b2c;
   stroke-width: 4;
 }
 
 .care-eye,
 .care-smile {
   fill: none;
-  stroke: #73531e;
+  stroke: #7a4a12;
   stroke-linecap: round;
   stroke-width: 6;
 }
 
 .care-face-wrap--settled .care-face circle {
-  fill: #f1fff6;
-  stroke: var(--leaf);
+  fill: #ffb44f;
+  stroke: #d2751c;
 }
 
 .care-face-wrap--settled .care-eye,
 .care-face-wrap--settled .care-smile {
-  stroke: var(--leaf-dark);
+  stroke: #66380a;
 }
 
 .care-face-wrap--stopped .care-face {
@@ -778,38 +686,55 @@ fieldset legend,
 
 .orbit-heart {
   position: absolute;
+  top: 50%;
+  left: 50%;
   z-index: 2;
   color: #dd815f;
   font-family: Georgia, serif;
   font-size: 25px;
+  line-height: 1;
   animation: heart-float 1.8s ease-in-out infinite alternate;
+  transform: translate(-50%, -50%) rotate(var(--orbit-angle))
+    translateY(calc(-1 * var(--orbit-radius))) rotate(calc(-1 * var(--orbit-angle)));
 }
 
 .orbit-heart--one {
-  top: 7px;
-  left: 52%;
-  transform: rotate(-12deg);
+  --orbit-angle: 0deg;
 }
 
 .orbit-heart--two {
-  top: 40%;
-  right: 0;
-  animation-delay: -0.45s;
-  transform: rotate(16deg);
+  --orbit-angle: 45deg;
+  animation-delay: -0.22s;
 }
 
 .orbit-heart--three {
-  bottom: 8px;
-  left: 42%;
-  animation-delay: -0.9s;
-  transform: rotate(-8deg);
+  --orbit-angle: 90deg;
+  animation-delay: -0.45s;
 }
 
 .orbit-heart--four {
-  top: 42%;
-  left: 0;
+  --orbit-angle: 135deg;
+  animation-delay: -0.67s;
+}
+
+.orbit-heart--five {
+  --orbit-angle: 180deg;
+  animation-delay: -0.9s;
+}
+
+.orbit-heart--six {
+  --orbit-angle: 225deg;
+  animation-delay: -1.12s;
+}
+
+.orbit-heart--seven {
+  --orbit-angle: 270deg;
   animation-delay: -1.35s;
-  transform: rotate(13deg);
+}
+
+.orbit-heart--eight {
+  --orbit-angle: 315deg;
+  animation-delay: -1.57s;
 }
 
 .requester-message {
@@ -847,11 +772,11 @@ fieldset legend,
 
 .matched-neighbor {
   display: inline-flex;
-  gap: 9px;
+  gap: 13px;
   align-items: center;
-  margin-top: 17px;
-  padding: 10px 14px;
-  border: 1px solid rgba(47, 107, 82, 0.15);
+  margin-top: 22px;
+  padding: 16px 26px;
+  border: 1px solid rgba(47, 107, 82, 0.18);
   border-radius: 999px;
   color: #275d48;
   background: rgba(255, 255, 255, 0.7);
@@ -859,11 +784,19 @@ fieldset legend,
 
 .matched-neighbor > span {
   color: #d7684e;
+  font-size: clamp(24px, 3vw, 32px);
+  line-height: 1;
 }
 
 .matched-neighbor p {
   margin: 0;
-  font-size: 11px;
+  font-size: clamp(17px, 2.1vw, 23px);
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+.matched-neighbor strong {
+  font-weight: 800;
 }
 
 .requester-progress {
@@ -1119,20 +1052,57 @@ fieldset legend,
   font-weight: 850;
 }
 
-.helper-actions button:first-child {
+.helper-action-reject {
   color: #6f4e45;
   background: #efe1dc;
 }
 
-.helper-actions button:last-child,
+.helper-action-accept,
 .mission-complete-button {
   color: white;
   background: var(--leaf-dark);
 }
 
+.helper-actions button:not(:disabled) {
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.helper-actions button:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 9px 20px rgba(43, 54, 45, 0.12);
+}
+
 .helper-actions button:disabled {
   cursor: wait;
   opacity: 0.78;
+}
+
+.helper-timeout-action {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 9px;
+  border: 1px dashed rgba(32, 48, 42, 0.28);
+  border-radius: 12px;
+  color: #536159;
+  background: rgba(255, 255, 255, 0.56);
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.fixture-action-feedback {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #704238;
+  background: #f8e8df;
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 1.5;
+  text-align: center;
 }
 
 .demo-action-note {
@@ -2343,6 +2313,7 @@ progress::-moz-progress-bar {
   .care-face-wrap {
     width: 205px;
     height: 205px;
+    --orbit-radius: 94px;
   }
 
   .participant-request-card dl {

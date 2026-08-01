@@ -10,6 +10,7 @@ test('one-shot request and completed workspace have no serious automated accessi
   expect(seriousViolations(requestResults.violations)).toEqual([])
 
   await page.getByRole('button', { name: /이 요청으로 실행하기/ }).click()
+  await page.getByRole('button', { name: '수락', exact: true }).click()
   await expect(page.getByRole('heading', { name: '모든 도움이 연결됐어요' })).toBeVisible()
 
   const resultResults = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
@@ -34,6 +35,7 @@ test('one-shot request remains usable on a narrow mobile viewport', async ({ pag
   await expect(page.getByRole('button', { name: /이 요청으로 실행하기/ })).toBeVisible()
   await page.getByRole('button', { name: /이 요청으로 실행하기/ }).click()
 
+  await page.getByRole('button', { name: '수락', exact: true }).click()
   await expect(page.getByRole('heading', { name: '모든 도움이 연결됐어요' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true
