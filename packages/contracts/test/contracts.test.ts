@@ -13,6 +13,7 @@ import {
   FindCandidatesCallSchema,
   InitialRequestSchema,
   RawToolEventSchema,
+  RunAcceptedResponseSchema,
   SafetyDecisionSchema,
   SendOutreachCallSchema,
   SendOutreachResultSchema,
@@ -92,6 +93,25 @@ const candidate = {
 } as const
 
 describe('shared domain contracts', () => {
+  it('accepts the run creation response and binds both stream URLs to the run', () => {
+    const response = {
+      schemaVersion: 2,
+      runId: identifiers.runId,
+      requestId: identifiers.requestId,
+      status: 'accepted',
+      agentEventsUrl: `/api/runs/${identifiers.runId}/events`,
+      rawToolEventsUrl: `/api/runs/${identifiers.runId}/raw-events`
+    } as const
+
+    expect(RunAcceptedResponseSchema.parse(response)).toEqual(response)
+    expect(() =>
+      RunAcceptedResponseSchema.parse({
+        ...response,
+        rawToolEventsUrl: '/api/runs/another_run/raw-events'
+      })
+    ).toThrow()
+  })
+
   it('accepts a complete one-shot initial request', () => {
     expect(InitialRequestSchema.parse(initialRequest)).toEqual(initialRequest)
   })

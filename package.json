@@ -4,11 +4,12 @@
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "build": "pnpm -r --if-present run build",
-    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.mjs .github README.md PROJECT.md packages docs/engineering",
-    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.mjs .github README.md PROJECT.md packages docs/engineering",
-    "lint": "eslint \"{apps,packages}/**/*.{ts,tsx}\" --max-warnings=0 --no-error-on-unmatched-pattern",
+    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.mjs playwright.config.ts .github README.md PROJECT.md apps packages tests docs",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.mjs playwright.config.ts .github README.md PROJECT.md apps packages tests docs",
+    "lint": "eslint \"{apps,packages,tests}/**/*.{ts,tsx}\" playwright.config.ts --max-warnings=0 --no-error-on-unmatched-pattern",
     "test": "pnpm -r --if-present run test",
     "test:coverage": "pnpm -r --if-present run test:coverage",
+    "test:e2e": "playwright test",
     "typecheck": "pnpm -r --if-present run typecheck",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:coverage && pnpm build"
   },
@@ -16,7 +17,9 @@
     "node": ">=22.0.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.58.2",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.8.0",
     "prettier": "^3.9.6",

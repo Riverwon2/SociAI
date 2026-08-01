@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 2,
+  "runId": "run_demo_001",
+  "requestId": "request_demo_001",
+  "status": "accepted",
+  "agentEventsUrl": "/api/runs/run_demo_001/events",
+  "rawToolEventsUrl": "/api/runs/run_demo_001/raw-events"
+}
