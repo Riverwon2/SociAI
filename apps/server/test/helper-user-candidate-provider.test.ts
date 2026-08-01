@@ -123,6 +123,69 @@ describe('helper-user candidate provider', () => {
     })
   })
 
+  it('refuses to rank a profile that has no matching fixture entry', () => {
+    const provider = createHelperUserCandidateProvider(fixture)
+    const [knownProfile] = provider.createCandidateProfiles([task])
+    if (knownProfile === undefined) throw new Error('Expected a synthetic profile')
+    const call: FindCandidatesForBundleCall = {
+      schemaVersion: SCHEMA_VERSION,
+      runId,
+      requestId,
+      toolCallId: 'call-find-helper-users-002',
+      bundle: {
+        schemaVersion: SCHEMA_VERSION,
+        runId,
+        requestId,
+        bundleId: 'bundle-grocery-carry',
+        taskIds: [task.taskId],
+        scheduledWindow,
+        totalActivityDurationMinutes: 20,
+        waitingMinutes: 0,
+        requiredExperience: ['grocery_carrying'],
+        reasonCodes: ['single_task_bundle']
+      },
+      candidateProfiles: [{ ...knownProfile, candidateId: 'candidate-outside-the-fixture' }],
+      plannedAssignments: []
+    }
+
+    expect(() => provider.findCandidatesForBundle(call)).toThrow(
+      /Missing fixture details for candidate-outside-the-fixture/
+    )
+  })
+
+  it('rejects a fixture that repeats a candidateId', () => {
+    expect(() =>
+      HelperUsersFixtureSchema.parse({
+        candidates: [
+          fixture.candidates[0],
+          { ...fixture.candidates[1], candidateId: fixture.candidates[0]?.candidateId }
+        ]
+      })
+    ).toThrow(/candidateId values must be unique/)
+  })
+
+  it('refuses to build profiles without a task to take the calendar day from', () => {
+    const provider = createHelperUserCandidateProvider(fixture)
+
+    expect(() => provider.createCandidateProfiles([])).toThrow(/At least one task is required/)
+  })
+
+  it('refuses tasks that span more than one local calendar day', () => {
+    const provider = createHelperUserCandidateProvider(fixture)
+    const nextDayTask: Task = {
+      ...task,
+      taskId: 'task-next-day',
+      timeWindow: {
+        startAt: '2026-08-03T15:00:00+09:00',
+        endAt: '2026-08-03T15:20:00+09:00'
+      }
+    }
+
+    expect(() => provider.createCandidateProfiles([task, nextDayTask])).toThrow(
+      /one local calendar day/
+    )
+  })
+
   it('rejects malformed time ranges before a candidate can enter the workflow', () => {
     expect(() =>
       HelperUsersFixtureSchema.parse({
