@@ -39,20 +39,26 @@ export function planBundleAssignments({
   tasks: readonly Task[]
   candidateProfiles: readonly CandidateProfile[]
 }>): BundleAssignmentPlan {
-  const sortedTasks = [...tasks].sort(compareTasks)
-  const context = getSharedContext(sortedTasks)
+  const readyTasks = tasks.filter((task) => task.status === 'ready').sort(compareTasks)
+  if (readyTasks.length === 0) {
+    return { bundles: [], assignments: [], unassignedTaskIds: [], splitReasonCodes: [] }
+  }
+
+  const context = getSharedContext(readyTasks)
   if (context === null) {
     throw new Error('Tasks must share runId and requestId before bundle planning')
   }
 
-  const readyTasks = sortedTasks.filter((task) => task.status === 'ready')
-  const tasksNotReady = sortedTasks.filter((task) => task.status !== 'ready')
-  const tasksWithSchedulingMetadata = readyTasks.filter(hasSchedulingMetadata)
-  const tasksMissingSchedulingMetadata = readyTasks.filter((task) => !hasSchedulingMetadata(task))
+  const tasksWithRejectedLlmDuration = readyTasks.filter(hasRejectedLlmDuration)
+  const tasksWithUsableDuration = readyTasks.filter((task) => !hasRejectedLlmDuration(task))
+  const tasksWithSchedulingMetadata = tasksWithUsableDuration.filter(hasSchedulingMetadata)
+  const tasksMissingSchedulingMetadata = tasksWithUsableDuration.filter(
+    (task) => !hasSchedulingMetadata(task)
+  )
   const initial = createBundles(tasksWithSchedulingMetadata, context)
   const resolved = resolveAssignments({
     bundles: initial.bundles,
-    tasksById: new Map(sortedTasks.map((task) => [task.taskId, task])),
+    tasksById: new Map(readyTasks.map((task) => [task.taskId, task])),
     candidateProfiles,
     initialAssignments: [],
     context
@@ -62,14 +68,16 @@ export function planBundleAssignments({
     bundles: resolved.bundles,
     assignments: resolved.assignments,
     unassignedTaskIds: unique([
+      ...tasksWithRejectedLlmDuration.map((task) => task.taskId),
       ...tasksMissingSchedulingMetadata.map((task) => task.taskId),
-      ...tasksNotReady.map((task) => task.taskId),
       ...initial.unassignedTaskIds,
       ...resolved.unassignedTaskIds
     ]),
     splitReasonCodes: unique([
+      ...(tasksWithRejectedLlmDuration.length > 0
+        ? ['llm_estimated_duration_exceeds_twenty_minutes']
+        : []),
       ...(tasksMissingSchedulingMetadata.length > 0 ? ['task_schedule_metadata_missing'] : []),
-      ...(tasksNotReady.length > 0 ? ['task_not_ready_for_assignment'] : []),
       ...initial.splitReasonCodes,
       ...resolved.splitReasonCodes
     ])
@@ -227,7 +235,6 @@ function scheduleTasks(tasks: readonly Task[], minimumStartAt?: number): Schedul
   const scheduledTasks: ScheduledTask[] = []
   let previousEndAt: number | null = null
   let totalActivityDurationMinutes = 0
-  let waitingMinutes = 0
 
   for (const task of sortedTasks) {
     const windowStartAt = Date.parse(task.timeWindow.startAt)
@@ -242,9 +249,6 @@ function scheduleTasks(tasks: readonly Task[], minimumStartAt?: number): Schedul
     if (previousEndAt !== null && startAt < previousEndAt) return null
     if (endAt > windowEndAt) return null
 
-    if (previousEndAt !== null) {
-      waitingMinutes += Math.round((startAt - previousEndAt) / MINUTE_MS)
-    }
     totalActivityDurationMinutes += task.estimatedDurationMinutes
     scheduledTasks.push({ task, startAt, endAt })
     previousEndAt = endAt
@@ -254,6 +258,7 @@ function scheduleTasks(tasks: readonly Task[], minimumStartAt?: number): Schedul
   const last = scheduledTasks.at(-1)
   if (first === undefined || last === undefined) return null
   if (totalActivityDurationMinutes > MAX_BUNDLE_ACTIVITY_DURATION_MINUTES) return null
+  const waitingMinutes = calculateFixedTaskWaitingMinutes(scheduledTasks)
   if (waitingMinutes > MAX_BUNDLE_WAITING_MINUTES) return null
 
   return {
@@ -273,16 +278,8 @@ function determineSplitReason(tasks: readonly Task[]): string {
     return 'helper_duration_exceeds_thirty_minutes'
   }
 
-  const sortedTasks = [...tasks].sort(compareTasks)
-  const previous = sortedTasks.at(-2)
-  const next = sortedTasks.at(-1)
-  if (previous !== undefined && next !== undefined) {
-    const previousEndAt =
-      Date.parse(previous.timeWindow.startAt) + previous.estimatedDurationMinutes * MINUTE_MS
-    const nextStartAt = Date.parse(next.timeWindow.startAt)
-    if (nextStartAt - previousEndAt > MAX_BUNDLE_WAITING_MINUTES * MINUTE_MS) {
-      return 'waiting_time_exceeds_twenty_minutes'
-    }
+  if (hasFixedTaskWaitOverLimit(tasks)) {
+    return 'waiting_time_exceeds_twenty_minutes'
   }
 
   return 'task_windows_do_not_align'
@@ -332,9 +329,48 @@ function selectCandidate(
     [...eligible].sort(
       (left, right) =>
         right.profile.reliabilityRate - left.profile.reliabilityRate ||
-        left.profile.candidateId.localeCompare(right.profile.candidateId)
+        left.profile.candidateId.localeCompare(right.profile.candidateId) ||
+        Date.parse(left.schedule.scheduledWindow.startAt) -
+          Date.parse(right.schedule.scheduledWindow.startAt) ||
+        Date.parse(left.schedule.scheduledWindow.endAt) -
+          Date.parse(right.schedule.scheduledWindow.endAt)
     )[0] ?? null
   )
+}
+
+function calculateFixedTaskWaitingMinutes(scheduledTasks: readonly ScheduledTask[]): number {
+  const fixedTasks = scheduledTasks.filter(({ task }) => task.timeCertainty === 'fixed')
+  let waitingMinutes = 0
+
+  for (let index = 1; index < fixedTasks.length; index += 1) {
+    const previous = fixedTasks[index - 1]
+    const next = fixedTasks[index]
+    if (previous === undefined || next === undefined) continue
+
+    const activeMinutesBetween = scheduledTasks.reduce((total, scheduled) => {
+      if (scheduled === previous || scheduled === next) return total
+      const overlapStart = Math.max(previous.endAt, scheduled.startAt)
+      const overlapEnd = Math.min(next.startAt, scheduled.endAt)
+      return total + Math.max(0, overlapEnd - overlapStart) / MINUTE_MS
+    }, 0)
+    const elapsedMinutes = Math.max(0, next.startAt - previous.endAt) / MINUTE_MS
+    waitingMinutes += Math.max(0, elapsedMinutes - activeMinutesBetween)
+  }
+
+  return Math.round(waitingMinutes)
+}
+
+function hasFixedTaskWaitOverLimit(tasks: readonly Task[]): boolean {
+  const fixedTasks = tasks.filter((task) => task.timeCertainty === 'fixed').sort(compareTasks)
+
+  return fixedTasks.some((task, index) => {
+    const previous = fixedTasks[index - 1]
+    if (previous === undefined) return false
+    const previousEndAt =
+      Date.parse(previous.timeWindow.startAt) + previous.estimatedDurationMinutes * MINUTE_MS
+    const waitingMinutes = (Date.parse(task.timeWindow.startAt) - previousEndAt) / MINUTE_MS
+    return waitingMinutes > MAX_BUNDLE_WAITING_MINUTES
+  })
 }
 
 function containsWindow(outer: TimeWindow, inner: TimeWindow): boolean {
@@ -375,6 +411,10 @@ function hasSchedulingMetadata(task: Task): boolean {
     task.timeSource !== undefined &&
     task.timeCertainty !== undefined
   )
+}
+
+function hasRejectedLlmDuration(task: Task): boolean {
+  return task.durationSource === 'llm_estimated' && task.estimatedDurationMinutes > 20
 }
 
 function unique(values: readonly string[]): string[] {

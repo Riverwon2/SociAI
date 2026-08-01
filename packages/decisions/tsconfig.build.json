@@ -8,5 +8,5 @@
     "rootDir": ".",
     "sourceMap": true
   },
-  "include": ["index.ts", "policies", "ranking", "safety", "sufficiency"]
+  "include": ["index.ts", "bundling", "policies", "ranking", "safety", "sufficiency"]
 }

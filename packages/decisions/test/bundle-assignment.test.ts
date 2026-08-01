@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { CandidateProfile, Task } from '@30-minute-exchange/contracts'
 
-import { planBundleAssignments } from '../src/bundling/plan-bundle-assignments.js'
+import { planBundleAssignments } from '../bundling/plan-bundle-assignments.js'
 
 const requestContext = {
   schemaVersion: 2,
@@ -128,6 +128,49 @@ describe('planBundleAssignments', () => {
     expect(result.splitReasonCodes).toContain('waiting_time_exceeds_twenty_minutes')
   })
 
+  it('keeps fixed tasks together when their waiting time is exactly twenty minutes', () => {
+    const result = planBundleAssignments({
+      tasks: [
+        task('task_first', '2026-08-01T18:00:00+09:00', '2026-08-01T18:10:00+09:00', 10),
+        task('task_second', '2026-08-01T18:30:00+09:00', '2026-08-01T18:40:00+09:00', 10)
+      ],
+      candidateProfiles: [
+        candidate(
+          'candidate_at_limit',
+          [{ startAt: '2026-08-01T17:50:00+09:00', endAt: '2026-08-01T18:50:00+09:00' }],
+          []
+        )
+      ]
+    })
+
+    expect(result.bundles).toHaveLength(1)
+    expect(result.bundles[0]?.waitingMinutes).toBe(20)
+  })
+
+  it('does not count gaps between flexible tasks as fixed-task waiting', () => {
+    const first: Task = {
+      ...task('task_flexible_first', '2026-08-01T18:00:00+09:00', '2026-08-01T18:10:00+09:00', 10),
+      timeCertainty: 'flexible'
+    }
+    const second: Task = {
+      ...task('task_flexible_second', '2026-08-01T19:00:00+09:00', '2026-08-01T19:10:00+09:00', 10),
+      timeCertainty: 'flexible'
+    }
+    const result = planBundleAssignments({
+      tasks: [first, second],
+      candidateProfiles: [
+        candidate(
+          'candidate_flexible',
+          [{ startAt: '2026-08-01T17:50:00+09:00', endAt: '2026-08-01T19:20:00+09:00' }],
+          []
+        )
+      ]
+    })
+
+    expect(result.bundles).toHaveLength(1)
+    expect(result.bundles[0]?.waitingMinutes).toBe(0)
+  })
+
   it('splits tasks when combined active time exceeds thirty minutes', () => {
     const result = planBundleAssignments({
       tasks: [
@@ -205,7 +248,72 @@ describe('planBundleAssignments', () => {
     expect(result.splitReasonCodes).toContain('task_schedule_metadata_missing')
   })
 
-  it('keeps a task out of matching until safety and sufficiency mark it ready', () => {
+  it('rejects an LLM-estimated duration over twenty minutes at the decision boundary', () => {
+    const invalidLlmEstimate: Task = {
+      ...task('task_llm_too_long', '2026-08-01T18:00:00+09:00', '2026-08-01T18:30:00+09:00', 21),
+      durationSource: 'llm_estimated',
+      timeCertainty: 'flexible'
+    }
+    const result = planBundleAssignments({
+      tasks: [invalidLlmEstimate],
+      candidateProfiles: [
+        candidate(
+          'candidate_available',
+          [{ startAt: '2026-08-01T17:50:00+09:00', endAt: '2026-08-01T18:40:00+09:00' }],
+          []
+        )
+      ]
+    })
+
+    expect(result.assignments).toEqual([])
+    expect(result.unassignedTaskIds).toEqual(['task_llm_too_long'])
+    expect(result.splitReasonCodes).toContain('llm_estimated_duration_exceeds_twenty_minutes')
+  })
+
+  it('ignores map coordinates when matching an eligible candidate', () => {
+    const distantCandidate: CandidateProfile = {
+      ...candidate(
+        'candidate_without_route_check',
+        [{ startAt: '2026-08-01T17:50:00+09:00', endAt: '2026-08-01T18:30:00+09:00' }],
+        []
+      ),
+      activityRegion: {
+        label: 'Synthetic Remote District',
+        approximateLocation: 'Coordinates are intentionally irrelevant',
+        center: { latitude: -37.5, longitude: -127 }
+      }
+    }
+    const result = planBundleAssignments({
+      tasks: [task('task_no_map', '2026-08-01T18:00:00+09:00', '2026-08-01T18:10:00+09:00', 10)],
+      candidateProfiles: [distantCandidate]
+    })
+
+    expect(result.assignments[0]?.candidateId).toBe('candidate_without_route_check')
+  })
+
+  it('selects the same earliest schedule regardless of availability input order', () => {
+    const flexibleTask: Task = {
+      ...task('task_deterministic', '2026-08-01T17:00:00+09:00', '2026-08-01T20:00:00+09:00', 10),
+      timeCertainty: 'flexible'
+    }
+    const windows = [
+      { startAt: '2026-08-01T18:00:00+09:00', endAt: '2026-08-01T18:30:00+09:00' },
+      { startAt: '2026-08-01T17:30:00+09:00', endAt: '2026-08-01T18:00:00+09:00' }
+    ]
+    const forward = planBundleAssignments({
+      tasks: [flexibleTask],
+      candidateProfiles: [candidate('candidate_stable', windows, [])]
+    })
+    const reversed = planBundleAssignments({
+      tasks: [flexibleTask],
+      candidateProfiles: [candidate('candidate_stable', [...windows].reverse(), [])]
+    })
+
+    expect(forward).toEqual(reversed)
+    expect(forward.assignments[0]?.scheduledWindow.startAt).toBe('2026-08-01T08:30:00.000Z')
+  })
+
+  it('ignores tasks until safety and sufficiency mark them ready', () => {
     const blockedTask: Task = {
       ...task('task_blocked', '2026-08-01T18:00:00+09:00', '2026-08-01T18:20:00+09:00', 10),
       status: 'blocked'
@@ -222,7 +330,7 @@ describe('planBundleAssignments', () => {
     })
 
     expect(result.assignments).toEqual([])
-    expect(result.unassignedTaskIds).toEqual(['task_blocked'])
-    expect(result.splitReasonCodes).toContain('task_not_ready_for_assignment')
+    expect(result.unassignedTaskIds).toEqual([])
+    expect(result.splitReasonCodes).toEqual([])
   })
 })

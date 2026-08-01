@@ -6,6 +6,7 @@
   },
   "include": [
     "index.ts",
+    "bundling",
     "policies",
     "ranking",
     "safety",
