@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "scenarioId": "reject_timeout_accept",
+  "seed": "retry-path-v1",
+  "initialRequest": {
+    "schemaVersion": 1,
+    "requestId": "request_retry_001",
+    "helpDescription": "현관 앞의 가벼운 재활용품을 단지 분리배출장까지 옮겨 주세요.",
+    "timeWindow": {
+      "startAt": "2026-08-01T10:00:00.000Z",
+      "endAt": "2026-08-01T11:00:00.000Z"
+    },
+    "timeFlexibility": { "kind": "fixed" },
+    "activityRegion": {
+      "label": "푸른솔동",
+      "approximateLocation": "푸른솔동 공동주택 단지 인근"
+    },
+    "costPolicy": { "choice": "none" },
+    "fallbackPolicy": {
+      "allowTimeAdjustment": false,
+      "allowPartialCompletion": true,
+      "allowScopeReduction": false
+    }
+  },
+  "tasks": [
+    {
+      "schemaVersion": 1,
+      "runId": "run_retry_001",
+      "requestId": "request_retry_001",
+      "taskId": "task_retry_001",
+      "title": "재활용품 분리배출",
+      "description": "현관 밖의 가벼운 재활용품을 단지 분리배출장으로 옮긴다.",
+      "timeWindow": {
+        "startAt": "2026-08-01T10:00:00.000Z",
+        "endAt": "2026-08-01T11:00:00.000Z"
+      },
+      "region": {
+        "label": "푸른솔동",
+        "approximateLocation": "푸른솔동 공동주택 단지 인근"
+      },
+      "requiredExperience": ["가벼운 생활 폐기물 이동"],
+      "estimatedDurationMinutes": 20,
+      "status": "created",
+      "missingInformation": []
+    }
+  ],
+  "candidates": [
+    {
+      "schemaVersion": 1,
+      "runId": "run_retry_001",
+      "requestId": "request_retry_001",
+      "taskId": "task_retry_001",
+      "candidateId": "candidate_retry_001",
+      "displayName": "가상 이웃 하나",
+      "activityRegion": {
+        "label": "푸른솔동",
+        "approximateLocation": "푸른솔동 생활권"
+      },
+      "activityRadiusKm": 1,
+      "isAvailable": true,
+      "distanceKm": 0.4,
+      "experienceTags": ["가벼운 생활 폐기물 이동"],
+      "reliabilityRate": 0.96,
+      "scoreBreakdown": {
+        "availability": 1,
+        "distance": 0.92,
+        "experience": 1,
+        "reliability": 0.96,
+        "weightedTotal": 0.974
+      },
+      "rank": 1,
+      "isSimulation": true
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "run_retry_001",
+      "requestId": "request_retry_001",
+      "taskId": "task_retry_001",
+      "candidateId": "candidate_retry_002",
+      "displayName": "가상 이웃 둘",
+      "activityRegion": {
+        "label": "푸른솔동",
+        "approximateLocation": "푸른솔동 생활권"
+      },
+      "activityRadiusKm": 3,
+      "isAvailable": true,
+      "distanceKm": 1.1,
+      "experienceTags": ["생활 지원"],
+      "reliabilityRate": 0.9,
+      "scoreBreakdown": {
+        "availability": 1,
+        "distance": 0.8,
+        "experience": 0.75,
+        "reliability": 0.9,
+        "weightedTotal": 0.885
+      },
+      "rank": 2,
+      "isSimulation": true
+    },
+    {
+      "schemaVersion": 1,
+      "runId": "run_retry_001",
+      "requestId": "request_retry_001",
+      "taskId": "task_retry_001",
+      "candidateId": "candidate_retry_003",
+      "displayName": "가상 이웃 셋",
+      "activityRegion": {
+        "label": "푸른솔동",
+        "approximateLocation": "푸른솔동 생활권"
+      },
+      "activityRadiusKm": 3,
+      "isAvailable": true,
+      "distanceKm": 1.4,
+      "experienceTags": ["가벼운 생활 폐기물 이동"],
+      "reliabilityRate": 0.98,
+      "scoreBreakdown": {
+        "availability": 1,
+        "distance": 0.7,
+        "experience": 0.8,
+        "reliability": 0.98,
+        "weightedTotal": 0.882
+      },
+      "rank": 3,
+      "isSimulation": true
+    }
+  ],
+  "responseSequence": [
+    {
+      "taskId": "task_retry_001",
+      "candidateId": "candidate_retry_001",
+      "attempt": 1,
+      "outcome": "rejected"
+    },
+    {
+      "taskId": "task_retry_001",
+      "candidateId": "candidate_retry_002",
+      "attempt": 2,
+      "outcome": "timed_out"
+    },
+    {
+      "taskId": "task_retry_001",
+      "candidateId": "candidate_retry_003",
+      "attempt": 3,
+      "outcome": "accepted"
+    }
+  ],
+  "expectedRawToolCorrelations": [
+    { "toolCallId": "call_retry_safety", "callSequence": 1, "resultSequence": 2 },
+    { "toolCallId": "call_retry_candidates", "callSequence": 3, "resultSequence": 4 },
+    { "toolCallId": "call_retry_outreach_1", "callSequence": 5, "resultSequence": 6 },
+    { "toolCallId": "call_retry_outreach_2", "callSequence": 7, "resultSequence": 8 },
+    { "toolCallId": "call_retry_outreach_3", "callSequence": 9, "resultSequence": 10 },
+    { "toolCallId": "call_retry_confirm", "callSequence": 11, "resultSequence": 12 }
+  ],
+  "expectedEventTypes": [
+    "request.created",
+    "plan.created",
+    "task.created",
+    "safety.checked",
+    "candidates.ranked",
+    "outreach.sent",
+    "neighbor.replied",
+    "plan.updated",
+    "outreach.sent",
+    "outreach.timed_out",
+    "plan.updated",
+    "outreach.sent",
+    "neighbor.replied",
+    "match.confirmed",
+    "request.completed"
+  ],
+  "expectedFinalResult": {
+    "schemaVersion": 1,
+    "runId": "run_retry_001",
+    "requestId": "request_retry_001",
+    "status": "fully_matched",
+    "taskResults": [
+      {
+        "taskId": "task_retry_001",
+        "status": "matched",
+        "matchedCandidateId": "candidate_retry_003",
+        "reasonCodes": [],
+        "userMessage": "세 번째 후보와 매칭되었습니다."
+      }
+    ],
+    "userMessage": "재시도 후 요청이 성사되었습니다.",
+    "completedAt": "2026-08-01T10:22:00.000Z",
+    "simulatedComponents": ["outreach", "neighbor_response"],
+    "executionBoundary": {
+      "openaiInterpretation": "live",
+      "safetyPolicy": "deterministic",
+      "candidateRanking": "deterministic",
+      "outreach": "simulation",
+      "neighborResponse": "simulation",
+      "matchConfirmation": "simulation"
+    }
+  }
+}

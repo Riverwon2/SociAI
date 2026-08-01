@@ -1,0 +1,26 @@
+{
+  "name": "30-minute-exchange",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "build": "pnpm --filter @30-minute-exchange/contracts build",
+    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json packages/contracts docs/engineering",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json packages/contracts docs/engineering",
+    "lint": "eslint packages --max-warnings=0",
+    "test": "pnpm --filter @30-minute-exchange/contracts test",
+    "test:coverage": "pnpm --filter @30-minute-exchange/contracts test:coverage",
+    "typecheck": "pnpm --filter @30-minute-exchange/contracts typecheck"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^10.8.0",
+    "prettier": "^3.9.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "scenarioId": "first_candidate_accepts",
+  "seed": "happy-path-v1",
+  "initialRequest": {
+    "schemaVersion": 1,
+    "requestId": "request_happy_001",
+    "helpDescription": "오늘 오후 6시 전 관리실의 가벼운 생필품 상자를 현관 앞까지 전달해 주세요.",
+    "timeWindow": {
+      "startAt": "2026-08-01T08:00:00.000Z",
+      "endAt": "2026-08-01T09:00:00.000Z"
+    },
+    "timeFlexibility": { "kind": "fixed" },
+    "activityRegion": {
+      "label": "해오름동",
+      "approximateLocation": "해오름동 주민센터 인근"
+    },
+    "costPolicy": { "choice": "none" },
+    "fallbackPolicy": {
+      "allowTimeAdjustment": false,
+      "allowPartialCompletion": true,
+      "allowScopeReduction": true
+    }
+  },
+  "tasks": [
+    {
+      "schemaVersion": 1,
+      "runId": "run_happy_001",
+      "requestId": "request_happy_001",
+      "taskId": "task_happy_001",
+      "title": "생필품 상자 수령",
+      "description": "관리실에서 가벼운 상자를 수령해 현관 앞에 전달한다.",
+      "timeWindow": {
+        "startAt": "2026-08-01T08:00:00.000Z",
+        "endAt": "2026-08-01T09:00:00.000Z"
+      },
+      "region": {
+        "label": "해오름동",
+        "approximateLocation": "해오름동 주민센터 인근"
+      },
+      "requiredExperience": ["가벼운 물품 전달"],
+      "estimatedDurationMinutes": 20,
+      "status": "created",
+      "missingInformation": []
+    }
+  ],
+  "candidates": [
+    {
+      "schemaVersion": 1,
+      "runId": "run_happy_001",
+      "requestId": "request_happy_001",
+      "taskId": "task_happy_001",
+      "candidateId": "candidate_happy_001",
+      "displayName": "가상 이웃 하나",
+      "activityRegion": {
+        "label": "해오름동",
+        "approximateLocation": "해오름동 생활권"
+      },
+      "activityRadiusKm": 1,
+      "isAvailable": true,
+      "distanceKm": 0.4,
+      "experienceTags": ["가벼운 물품 전달"],
+      "reliabilityRate": 0.96,
+      "scoreBreakdown": {
+        "availability": 1,
+        "distance": 0.92,
+        "experience": 1,
+        "reliability": 0.96,
+        "weightedTotal": 0.974
+      },
+      "rank": 1,
+      "isSimulation": true
+    }
+  ],
+  "responseSequence": [
+    {
+      "taskId": "task_happy_001",
+      "candidateId": "candidate_happy_001",
+      "attempt": 1,
+      "outcome": "accepted"
+    }
+  ],
+  "expectedRawToolCorrelations": [
+    { "toolCallId": "call_happy_safety", "callSequence": 1, "resultSequence": 2 },
+    { "toolCallId": "call_happy_candidates", "callSequence": 3, "resultSequence": 4 },
+    { "toolCallId": "call_happy_outreach", "callSequence": 5, "resultSequence": 6 },
+    { "toolCallId": "call_happy_confirm", "callSequence": 7, "resultSequence": 8 }
+  ],
+  "expectedEventTypes": [
+    "request.created",
+    "plan.created",
+    "task.created",
+    "safety.checked",
+    "candidates.ranked",
+    "outreach.sent",
+    "neighbor.replied",
+    "match.confirmed",
+    "request.completed"
+  ],
+  "expectedFinalResult": {
+    "schemaVersion": 1,
+    "runId": "run_happy_001",
+    "requestId": "request_happy_001",
+    "status": "fully_matched",
+    "taskResults": [
+      {
+        "taskId": "task_happy_001",
+        "status": "matched",
+        "matchedCandidateId": "candidate_happy_001",
+        "reasonCodes": [],
+        "userMessage": "첫 번째 후보와 매칭되었습니다."
+      }
+    ],
+    "userMessage": "요청이 모두 성사되었습니다.",
+    "completedAt": "2026-08-01T08:02:00.000Z",
+    "simulatedComponents": ["outreach", "neighbor_response"],
+    "executionBoundary": {
+      "openaiInterpretation": "live",
+      "safetyPolicy": "deterministic",
+      "candidateRanking": "deterministic",
+      "outreach": "simulation",
+      "neighborResponse": "simulation",
+      "matchConfirmation": "simulation"
+    }
+  }
+}
