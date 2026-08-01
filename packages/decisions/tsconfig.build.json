@@ -5,8 +5,8 @@
     "declarationMap": true,
     "noEmit": false,
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": ".",
     "sourceMap": true
   },
-  "include": ["src"]
+  "include": ["index.ts", "policies", "ranking", "safety", "sufficiency"]
 }

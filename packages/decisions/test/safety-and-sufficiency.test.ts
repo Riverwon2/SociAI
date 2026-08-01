@@ -9,8 +9,8 @@ import {
   type Task
 } from '@30-minute-exchange/contracts'
 
-import { checkSafety } from '../src/safety/check-safety.js'
-import { checkSufficiency } from '../src/sufficiency/check-sufficiency.js'
+import { checkSafety } from '../safety/check-safety.js'
+import { checkSufficiency } from '../sufficiency/check-sufficiency.js'
 import { identifiers, safetyCall, task } from './fixtures.js'
 
 function taskWith(description: string, title = '안전 판정 태스크'): Task {
