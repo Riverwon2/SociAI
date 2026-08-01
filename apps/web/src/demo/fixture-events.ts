@@ -83,6 +83,10 @@ function eventPayload(type: AgentEvent['type'], context: BuildContext): Record<s
       return sufficiencyPayload(context)
     case 'task.held':
       return heldPayload(context)
+    case 'clarification.invited':
+      return clarificationInvitedPayload(context)
+    case 'clarification.responded':
+      return clarificationRespondedPayload(context)
     case 'bundles.planned':
       return bundlesPayload(context)
     case 'assignments.planned':
@@ -167,6 +171,41 @@ function heldPayload(context: BuildContext) {
       reasonCodes: ['required_information_missing'],
       missingInformation: [{ code: 'details', message: '필수 정보가 부족합니다.' }],
       guidance: '추가 질문 없이 해당 작업만 보류합니다.'
+    }
+  }
+}
+
+/** A clarification invite belongs to a held task and the neighbour asked about it. */
+function clarificationPair(context: BuildContext) {
+  const task = requireItem(actionableTasks(context.fixture), 0, 'clarification task')
+  const candidate = context.fixture.candidates.find(({ taskId }) => taskId === task.taskId)
+  if (candidate === undefined) {
+    throw new Error('Fixture is missing a candidate for the clarification invite')
+  }
+  return { candidate, task }
+}
+
+function clarificationInvitedPayload(context: BuildContext) {
+  const { candidate, task } = clarificationPair(context)
+  return {
+    taskId: task.taskId,
+    data: {
+      toolCallId: `clarification_${task.taskId}`,
+      candidateId: candidate.candidateId
+    }
+  }
+}
+
+function clarificationRespondedPayload(context: BuildContext) {
+  const { candidate, task } = clarificationPair(context)
+  return {
+    taskId: task.taskId,
+    data: {
+      candidateId: candidate.candidateId,
+      outcome: 'conversation_agreed',
+      taskStatus: 'held',
+      requesterMessage: '이웃이 부족한 정보를 확인하는 대화에 응했어요.',
+      isSimulation: true
     }
   }
 }
@@ -406,6 +445,8 @@ function eventMessage(type: AgentEvent['type']): string {
       'safety.checked': '작업별 안전성을 확인했습니다.',
       'sufficiency.checked': '진행에 필요한 정보가 충분한지 확인했습니다.',
       'task.held': '정보가 부족한 작업을 보류했습니다.',
+      'clarification.invited': '부족한 정보를 확인할 대화를 이웃에게 요청했습니다.',
+      'clarification.responded': '이웃이 확인 대화 요청에 응답했습니다.',
       'bundles.planned': '한 이웃이 함께 처리할 수 있는 작업끼리 묶었습니다.',
       'assignments.planned': '묶음별로 도와줄 이웃을 배정했습니다.',
       'candidates.ranked': '조건에 맞는 이웃 후보를 정렬했습니다.',

@@ -41,8 +41,11 @@ export function ParticipantDemo({
   const requesterOnly = view.clarificationResults.length > 0 && view.helpers.length === 0
   // Every helper keeps its own screen at all times. Selecting one only changes
   // which connection the requester panel is looking at.
-  const shownHelpers: readonly (HelperConnectionView | null)[] =
-    requesterOnly ? [] : view.helpers.length > 0 ? view.helpers : [null]
+  const shownHelpers: readonly (HelperConnectionView | null)[] = requesterOnly
+    ? []
+    : view.helpers.length > 0
+      ? view.helpers
+      : [null]
   const isGrid = shownHelpers.length > 1
 
   return (
@@ -178,9 +181,7 @@ function RequesterBody({
         <div className="clarification-requester-results" aria-label="정보 확인 대화 의향 결과">
           {view.clarificationResults.map((result) => (
             <div className={`clarification-result is-${result.outcome}`} key={result.taskId}>
-              <span aria-hidden="true">
-                {result.outcome === 'conversation_agreed' ? '✓' : '–'}
-              </span>
+              <span aria-hidden="true">{result.outcome === 'conversation_agreed' ? '✓' : '–'}</span>
               <div>
                 <small>정보 확인 대화 의향 · 실제 매칭 아님</small>
                 <p>{result.requesterMessage}</p>

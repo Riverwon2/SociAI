@@ -74,12 +74,18 @@ export function deriveParticipantDemoView(run: RunState): ParticipantDemoView {
     request: collect(events, 'request.created')[0]?.data.request ?? null,
     result: run.result,
     helpers,
-    clarificationResults: collect(events, 'clarification.responded').map((event) => ({
-      taskId: event.taskId,
-      candidateId: event.data.candidateId,
-      outcome: event.data.outcome,
-      requesterMessage: event.data.requesterMessage
-    }))
+    clarificationResults: collect(events, 'clarification.responded').flatMap((event) =>
+      event.taskId === undefined
+        ? []
+        : [
+            {
+              taskId: event.taskId,
+              candidateId: event.data.candidateId,
+              outcome: event.data.outcome,
+              requesterMessage: event.data.requesterMessage
+            }
+          ]
+    )
   }
 }
 
