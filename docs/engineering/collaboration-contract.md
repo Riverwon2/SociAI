@@ -4,14 +4,14 @@
 
 ## 소유권
 
-| 영역                                             | DRI | 책임                                                                       |
-| ------------------------------------------------ | --- | -------------------------------------------------------------------------- |
-| `apps/api`                                       | A   | OpenAI, 오케스트레이션, 실행 상태, 도구 어댑터, 결과 집계, SSE, raw 이벤트 |
-| `packages/contracts`                             | B   | Zod 스키마, 타입 export, 예제 JSON, 계약 테스트                            |
-| `packages/decision-engine`, `packages/demo-data` | B   | 안전·랭킹·응답 정책과 결정론 테스트                                        |
-| `apps/web`, `tests/e2e`                          | C   | 입력·진행·결과·raw 화면, 스트림 소비, E2E                                  |
+| 영역                                          | DRI | 책임                                                                            |
+| --------------------------------------------- | --- | ------------------------------------------------------------------------------- |
+| `apps/server`                                 | A   | OpenAI, 오케스트레이션, 실행 상태, 도구 어댑터, 결과 집계, SSE, raw 이벤트 발행 |
+| `packages/decisions`, `packages/simulator`    | B   | 안전·충분성·랭킹·응답 정책과 결정론 테스트                                      |
+| `packages/contracts`, `packages/event-stream` | C   | Zod 계약, 타입 export, 예제, 계약 테스트와 이벤트 전송 유틸                     |
+| `apps/web`, `tests/e2e`                       | C   | 입력·진행·결과·raw 화면, 스트림 소비, E2E                                       |
 
-공용 계약은 B가 변경을 준비하고 A와 C가 API/UI 영향을 검토한다. 공용 파일 변경에는 예제 JSON과 계약 테스트를 반드시 함께 포함한다.
+공용 계약은 C가 기술적으로 편집하고 A와 B가 API·정책 영향을 함께 검토한다. 공용 파일 변경에는 예제 JSON과 계약 테스트를 반드시 함께 포함한다.
 
 ## 기술 기준
 
@@ -32,6 +32,7 @@
 - `InitialRequest`
 - `Task`
 - `SafetyDecision`
+- `SufficiencyDecision`
 - `Candidate`
 - `AgentEvent`
 - `RawToolEvent`
@@ -54,12 +55,13 @@
 
 ## A와 B의 도구 경계
 
-| 도구              | 구현 책임              | 핵심 동작                                       |
-| ----------------- | ---------------------- | ----------------------------------------------- |
-| `check_safety`    | B                      | `Task`를 `SafetyDecision`으로 판정              |
-| `find_candidates` | B                      | 빈 배열도 정상 결과로 반환하고 점수 근거를 포함 |
-| `send_outreach`   | B simulator, A adapter | 고정 seed에서 수락·거절·timeout을 결정          |
-| `confirm_match`   | A                      | 수락 후보를 멱등하게 확정                       |
+| 도구                | 구현 책임              | 핵심 동작                                       |
+| ------------------- | ---------------------- | ----------------------------------------------- |
+| `check_safety`      | B                      | `Task`를 `SafetyDecision`으로 판정              |
+| `check_sufficiency` | B                      | 사용 가능한 사실로 `SufficiencyDecision` 판정   |
+| `find_candidates`   | B                      | 빈 배열도 정상 결과로 반환하고 점수 근거를 포함 |
+| `send_outreach`     | B simulator, A adapter | 고정 seed에서 수락·거절·timeout을 결정          |
+| `confirm_match`     | A                      | 수락 후보를 멱등하게 확정                       |
 
 모든 도구는 `runId`, `requestId`, `taskId`, `toolCallId`를 포함한다. 시스템 오류는 `ToolError`로, 후보 없음·거절·timeout 같은 비즈니스 결과는 정상 data로 반환한다.
 
@@ -73,7 +75,7 @@
 
 ## 보안 경계
 
-- `.env`와 모든 로컬 변형은 커밋하지 않고 `.env.example`에는 키 이름만 둔다.
+- `.env`와 모든 로컬 변형은 커밋하지 않는다. 필요한 키 이름은 루트 README에만 문서화한다.
 - 서버는 시작 시 필요한 환경 변수를 검증하며 토큰, 전체 요청 본문, raw 이벤트를 일반 로그에 출력하지 않는다.
 - API adapter는 스키마 검증 전에 요청 본문 크기를 제한하고, 실행별 이벤트 버퍼와 SSE 재연결 보관량에 상한을 둔다.
 - `helpDescription`, `optionalNotes`, tool result는 신뢰할 수 없는 데이터이며 프롬프트나 시스템 명령으로 실행하지 않는다.

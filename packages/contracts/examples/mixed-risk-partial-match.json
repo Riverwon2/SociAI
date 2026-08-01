@@ -1,21 +1,22 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "scenarioId": "mixed_risk_partial_match",
   "seed": "mixed-risk-v1",
   "initialRequest": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "requestId": "request_mixed_001",
     "helpDescription": "문서봉투를 주민센터 민원함에 전달하고 돌아오는 길에 처방약 복용을 도와주세요.",
     "timeWindow": {
       "startAt": "2026-08-01T06:00:00.000Z",
       "endAt": "2026-08-01T08:00:00.000Z"
     },
+    "maxActivityDurationMinutes": 30,
     "timeFlexibility": { "kind": "fixed" },
     "activityRegion": {
       "label": "새봄동",
       "approximateLocation": "새봄동 주민센터 인근"
     },
-    "costPolicy": { "choice": "none" },
+    "costPolicy": { "choice": "none", "paymentMethod": "not_applicable" },
     "fallbackPolicy": {
       "allowTimeAdjustment": false,
       "allowPartialCompletion": true,
@@ -24,7 +25,7 @@
   },
   "tasks": [
     {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "runId": "run_mixed_001",
       "requestId": "request_mixed_001",
       "taskId": "task_mixed_safe_001",
@@ -44,7 +45,7 @@
       "missingInformation": []
     },
     {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "runId": "run_mixed_001",
       "requestId": "request_mixed_001",
       "taskId": "task_mixed_risk_001",
@@ -66,7 +67,7 @@
   ],
   "candidates": [
     {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "runId": "run_mixed_001",
       "requestId": "request_mixed_001",
       "taskId": "task_mixed_safe_001",
@@ -103,9 +104,10 @@
   "expectedRawToolCorrelations": [
     { "toolCallId": "call_mixed_safe_safety", "callSequence": 1, "resultSequence": 2 },
     { "toolCallId": "call_mixed_risk_safety", "callSequence": 3, "resultSequence": 4 },
-    { "toolCallId": "call_mixed_candidates", "callSequence": 5, "resultSequence": 6 },
-    { "toolCallId": "call_mixed_outreach", "callSequence": 7, "resultSequence": 8 },
-    { "toolCallId": "call_mixed_confirm", "callSequence": 9, "resultSequence": 10 }
+    { "toolCallId": "call_mixed_sufficiency", "callSequence": 5, "resultSequence": 6 },
+    { "toolCallId": "call_mixed_candidates", "callSequence": 7, "resultSequence": 8 },
+    { "toolCallId": "call_mixed_outreach", "callSequence": 9, "resultSequence": 10 },
+    { "toolCallId": "call_mixed_confirm", "callSequence": 11, "resultSequence": 12 }
   ],
   "expectedEventTypes": [
     "request.created",
@@ -114,6 +116,7 @@
     "task.created",
     "safety.checked",
     "safety.checked",
+    "sufficiency.checked",
     "task.blocked",
     "plan.updated",
     "candidates.ranked",
@@ -123,7 +126,7 @@
     "request.completed"
   ],
   "expectedFinalResult": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "runId": "run_mixed_001",
     "requestId": "request_mixed_001",
     "status": "partially_matched",

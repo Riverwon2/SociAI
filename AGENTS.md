@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file is the canonical repository-wide instruction set for agents working on **30-Minute Exchange (30분 교환소)**. For a Korean translation, see `AGENT-kor.md`. If the two differ, this file wins. A more specific `AGENTS.md` in a subdirectory overrides this file only for that subtree. System and user instructions always take precedence.
+This file is the canonical repository-wide instruction set for agents working on **30-Minute Exchange (30분 교환소)**. A more specific `AGENTS.md` in a subdirectory overrides this file only for that subtree. System and user instructions always take precedence.
 
 ## 1. Mission and non-negotiable constraints
 
@@ -16,7 +16,7 @@ Build a local-care operations agent that turns one natural-language request into
 
 ## 2. Product scope
 
-The MVP accepts one validated `InitialRequest` containing the help description, time window, flexibility, activity region, cost/payment choice, fallback permissions, and optional notes. It then operates independently within those pre-authorized boundaries.
+The MVP accepts one validated `InitialRequest` containing the help description, same-day time window, maximum activity duration of 30 minutes or less, flexibility, activity region, fixed no-cost/non-payment values, fallback permissions, and optional notes. It then operates independently within those pre-authorized boundaries.
 
 The supported result states are:
 
@@ -59,6 +59,7 @@ Lock these contracts first:
 - `InitialRequest`
 - `Task`
 - `SafetyDecision`
+- `SufficiencyDecision`
 - `Candidate`
 - `AgentEvent`
 - `RawToolEvent`
@@ -87,7 +88,7 @@ Maintain two separate streams:
 
 At minimum, support the planned event flow:
 
-`request.created → plan.created → task.created → safety.checked → candidates.ranked → outreach.sent → neighbor.replied/outreach.timed_out → plan.updated → match.confirmed/task.blocked → request.completed`
+`request.created → plan.created → task.created → safety.checked → sufficiency.checked → candidates.ranked → outreach.sent → neighbor.replied/outreach.timed_out → plan.updated → match.confirmed/task.blocked → request.completed`
 
 Every `plan.updated` records `revision`, `trigger`, `observation`, `previousAction`, `nextAction`, `policyApplied`, and `userInputRequired: false`. This event is the primary evidence of real-time adaptability.
 
@@ -121,9 +122,11 @@ Before implementation, inspect `README*`, package manifests, lockfiles, CI confi
 
 For parallel work, preserve these ownership boundaries:
 
-- **A — orchestration/backend:** server, OpenAI integration, run/task state, tool dispatch, result aggregation, event transport, and raw event transport.
-- **B — decisions/verification:** synthetic data, safety policy, candidate ranking, deterministic response simulator, fixed seeds, and tests.
-- **C — frontend/demo:** one-shot input, task/candidate status, final result, event timeline, raw second-screen console, and replay UI.
+- **A — orchestration/backend (`apps/server`):** OpenAI integration, run/task state, tool dispatch, result aggregation, runtime event production, SSE endpoints, and raw SDK event capture.
+- **B — decisions/verification (`packages/decisions`, `packages/simulator`):** synthetic data, safety and sufficiency policy, candidate ranking, deterministic response simulator, fixed seeds, and tests.
+- **C — integration/frontend/demo (`packages/contracts`, `packages/event-stream`, `apps/web`, `tests/e2e`):** technical editing of shared contracts, event transport utilities and consumers, one-shot input, task/candidate status, final result, event timeline, raw second-screen console, replay UI, and E2E tests.
+
+Shared contract changes require approval from A, B, and C. A owns runtime emission and server endpoints; C owns the shared event schemas, transport utilities, and frontend consumption rules.
 
 A may start against typed stubs, B against pure functions, and C against contract-valid fixtures. Replace stubs at the first integration checkpoint. Changes to shared contracts require coordination and contract-test updates. Do not revert another contributor's work.
 

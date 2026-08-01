@@ -1,21 +1,22 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "scenarioId": "reject_timeout_accept",
   "seed": "retry-path-v1",
   "initialRequest": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "requestId": "request_retry_001",
     "helpDescription": "현관 앞의 가벼운 재활용품을 단지 분리배출장까지 옮겨 주세요.",
     "timeWindow": {
       "startAt": "2026-08-01T10:00:00.000Z",
       "endAt": "2026-08-01T11:00:00.000Z"
     },
+    "maxActivityDurationMinutes": 20,
     "timeFlexibility": { "kind": "fixed" },
     "activityRegion": {
       "label": "푸른솔동",
       "approximateLocation": "푸른솔동 공동주택 단지 인근"
     },
-    "costPolicy": { "choice": "none" },
+    "costPolicy": { "choice": "none", "paymentMethod": "not_applicable" },
     "fallbackPolicy": {
       "allowTimeAdjustment": false,
       "allowPartialCompletion": true,
@@ -24,7 +25,7 @@
   },
   "tasks": [
     {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "runId": "run_retry_001",
       "requestId": "request_retry_001",
       "taskId": "task_retry_001",
@@ -46,7 +47,7 @@
   ],
   "candidates": [
     {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "runId": "run_retry_001",
       "requestId": "request_retry_001",
       "taskId": "task_retry_001",
@@ -72,7 +73,7 @@
       "isSimulation": true
     },
     {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "runId": "run_retry_001",
       "requestId": "request_retry_001",
       "taskId": "task_retry_001",
@@ -98,7 +99,7 @@
       "isSimulation": true
     },
     {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "runId": "run_retry_001",
       "requestId": "request_retry_001",
       "taskId": "task_retry_001",
@@ -146,17 +147,19 @@
   ],
   "expectedRawToolCorrelations": [
     { "toolCallId": "call_retry_safety", "callSequence": 1, "resultSequence": 2 },
-    { "toolCallId": "call_retry_candidates", "callSequence": 3, "resultSequence": 4 },
-    { "toolCallId": "call_retry_outreach_1", "callSequence": 5, "resultSequence": 6 },
-    { "toolCallId": "call_retry_outreach_2", "callSequence": 7, "resultSequence": 8 },
-    { "toolCallId": "call_retry_outreach_3", "callSequence": 9, "resultSequence": 10 },
-    { "toolCallId": "call_retry_confirm", "callSequence": 11, "resultSequence": 12 }
+    { "toolCallId": "call_retry_sufficiency", "callSequence": 3, "resultSequence": 4 },
+    { "toolCallId": "call_retry_candidates", "callSequence": 5, "resultSequence": 6 },
+    { "toolCallId": "call_retry_outreach_1", "callSequence": 7, "resultSequence": 8 },
+    { "toolCallId": "call_retry_outreach_2", "callSequence": 9, "resultSequence": 10 },
+    { "toolCallId": "call_retry_outreach_3", "callSequence": 11, "resultSequence": 12 },
+    { "toolCallId": "call_retry_confirm", "callSequence": 13, "resultSequence": 14 }
   ],
   "expectedEventTypes": [
     "request.created",
     "plan.created",
     "task.created",
     "safety.checked",
+    "sufficiency.checked",
     "candidates.ranked",
     "outreach.sent",
     "neighbor.replied",
@@ -170,7 +173,7 @@
     "request.completed"
   ],
   "expectedFinalResult": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "runId": "run_retry_001",
     "requestId": "request_retry_001",
     "status": "fully_matched",

@@ -14,6 +14,7 @@ describe('shared scenario JSON fixtures', () => {
     const parsed = DemoScenarioFixtureSchema.parse(fixture)
 
     expect(parsed.scenarioId).toBe(scenarioId)
+    expect(parsed.expectedEventTypes).toContain('sufficiency.checked')
     expect(parsed.expectedEventTypes.at(-1)).toBe('request.completed')
     expect(parsed.expectedRawToolCorrelations.length).toBeGreaterThan(0)
   })
@@ -119,6 +120,15 @@ describe('shared scenario JSON fixtures', () => {
     const invalid = {
       ...mixedRisk,
       tasks: [mixedRisk.tasks[0], { ...mixedRisk.tasks[1], runId: 'another_run' }]
+    }
+
+    expect(() => DemoScenarioFixtureSchema.parse(invalid)).toThrow()
+  })
+
+  it('rejects a task longer than the initial request maximum duration', () => {
+    const invalid = {
+      ...happyPath,
+      initialRequest: { ...happyPath.initialRequest, maxActivityDurationMinutes: 10 }
     }
 
     expect(() => DemoScenarioFixtureSchema.parse(invalid)).toThrow()

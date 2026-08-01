@@ -9,6 +9,7 @@ import {
   EventIdSchema,
   IsoDateTimeSchema,
   JsonValueSchema,
+  MissingInformationSchema,
   RequestIdSchema,
   RunIdSchema,
   SchemaVersionSchema,
@@ -16,6 +17,7 @@ import {
   TimeWindowSchema,
   ToolCallIdSchema
 } from './shared.js'
+import { SufficiencyDecisionSchema } from './sufficiency-decision.js'
 import { TaskSchema } from './task.js'
 
 export const AgentEventTypeSchema = z.enum([
@@ -23,6 +25,7 @@ export const AgentEventTypeSchema = z.enum([
   'plan.created',
   'task.created',
   'safety.checked',
+  'sufficiency.checked',
   'task.held',
   'candidates.ranked',
   'outreach.sent',
@@ -143,11 +146,19 @@ const SafetyCheckedEventSchema = createEventSchema(
 ).superRefine((event, context) => {
   validateEventRecordContext(event, event.data.decision, context, ['data', 'decision'])
 })
+const SufficiencyCheckedEventSchema = createEventSchema(
+  'sufficiency.checked',
+  z.object({ decision: SufficiencyDecisionSchema }).strict(),
+  true
+).superRefine((event, context) => {
+  validateEventRecordContext(event, event.data.decision, context, ['data', 'decision'])
+})
 const TaskHeldEventSchema = createEventSchema(
   'task.held',
   z
     .object({
-      missingInformation: z.array(z.string().trim().min(1)).min(1),
+      reasonCodes: z.array(z.string().trim().min(1).max(100)).min(1).max(20),
+      missingInformation: z.array(MissingInformationSchema).min(1).max(20),
       guidance: z.string().trim().min(1).max(1_000)
     })
     .strict(),
@@ -202,7 +213,7 @@ const OutreachTimedOutEventSchema = createEventSchema(
     .strict(),
   true
 )
-const PlanUpdatedEventSchema = createEventSchema('plan.updated', PlanUpdatedDataSchema)
+const PlanUpdatedEventSchema = createEventSchema('plan.updated', PlanUpdatedDataSchema, true)
 const MatchConfirmedEventSchema = createEventSchema(
   'match.confirmed',
   z
@@ -238,8 +249,7 @@ const ToolFailedEventSchema = createEventSchema(
       attempt: z.number().int().positive(),
       errorMessage: z.string().trim().min(1).max(1_000)
     })
-    .strict(),
-  true
+    .strict()
 )
 const RequestCompletedEventSchema = createEventSchema(
   'request.completed',
@@ -261,6 +271,7 @@ export const AgentEventSchema = z.discriminatedUnion('type', [
   PlanCreatedEventSchema,
   TaskCreatedEventSchema,
   SafetyCheckedEventSchema,
+  SufficiencyCheckedEventSchema,
   TaskHeldEventSchema,
   CandidatesRankedEventSchema,
   OutreachSentEventSchema,
