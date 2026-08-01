@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
   AgentEventSchema,
+  AssignmentSchema,
+  BuildBundleAssignmentsCallSchema,
+  BuildBundleAssignmentsResultSchema,
+  TaskBundleSchema,
   CandidateSchema,
   CheckSafetyCallSchema,
   CheckSafetyResultSchema,
@@ -166,6 +170,102 @@ describe('shared domain contracts', () => {
     expect(() => TaskSchema.parse(invalid)).toThrow()
   })
 
+  it('allows a flexible task to inherit the request time window', () => {
+    const inheritedTask = {
+      ...task,
+      timeSource: 'inherited_request_window',
+      timeCertainty: 'flexible',
+      durationSource: 'llm_estimated'
+    } as const
+
+    expect(TaskSchema.parse(inheritedTask)).toEqual(inheritedTask)
+  })
+
+  it('rejects an LLM duration estimate above twenty minutes', () => {
+    expect(() =>
+      TaskSchema.parse({
+        ...task,
+        estimatedDurationMinutes: 21,
+        durationSource: 'llm_estimated'
+      })
+    ).toThrow()
+  })
+
+  it('rejects a fixed task that claims to inherit the request window', () => {
+    expect(() =>
+      TaskSchema.parse({
+        ...task,
+        timeSource: 'inherited_request_window',
+        timeCertainty: 'fixed'
+      })
+    ).toThrow()
+  })
+
+  it('validates a single-helper task bundle and its assignment', () => {
+    const bundle = {
+      schemaVersion: 2,
+      runId: identifiers.runId,
+      requestId: identifiers.requestId,
+      bundleId: 'bundle_demo_001',
+      taskIds: [identifiers.taskId],
+      scheduledWindow: timeWindow,
+      totalActivityDurationMinutes: 20,
+      waitingMinutes: 0,
+      requiredExperience: ['light_item_delivery'],
+      reasonCodes: ['within_helper_duration_limit']
+    } as const
+    const assignment = {
+      schemaVersion: 2,
+      runId: identifiers.runId,
+      requestId: identifiers.requestId,
+      assignmentId: 'assignment_demo_001',
+      bundleId: bundle.bundleId,
+      candidateId: candidate.candidateId,
+      taskIds: bundle.taskIds,
+      scheduledWindow: bundle.scheduledWindow,
+      isSimulation: true
+    } as const
+
+    expect(TaskBundleSchema.parse(bundle)).toEqual(bundle)
+    expect(AssignmentSchema.parse(assignment)).toEqual(assignment)
+  })
+
+  it('rejects a bundle that exceeds the helper duration or waiting limits', () => {
+    const baseBundle = {
+      schemaVersion: 2,
+      runId: identifiers.runId,
+      requestId: identifiers.requestId,
+      bundleId: 'bundle_invalid_001',
+      taskIds: [identifiers.taskId],
+      scheduledWindow: timeWindow,
+      totalActivityDurationMinutes: 20,
+      waitingMinutes: 0,
+      requiredExperience: [],
+      reasonCodes: ['within_helper_duration_limit']
+    } as const
+
+    expect(() =>
+      TaskBundleSchema.parse({ ...baseBundle, totalActivityDurationMinutes: 31 })
+    ).toThrow()
+    expect(() => TaskBundleSchema.parse({ ...baseBundle, waitingMinutes: 21 })).toThrow()
+    expect(() =>
+      TaskBundleSchema.parse({ ...baseBundle, taskIds: [identifiers.taskId, identifiers.taskId] })
+    ).toThrow()
+    expect(() =>
+      AssignmentSchema.parse({
+        schemaVersion: 2,
+        runId: identifiers.runId,
+        requestId: identifiers.requestId,
+        assignmentId: 'assignment_invalid_001',
+        bundleId: baseBundle.bundleId,
+        candidateId: candidate.candidateId,
+        taskIds: [identifiers.taskId, identifiers.taskId],
+        scheduledWindow: timeWindow,
+        isSimulation: true
+      })
+    ).toThrow()
+  })
+
   it('keeps safety level separate from deterministic action', () => {
     const decision = {
       schemaVersion: 2,
@@ -245,6 +345,61 @@ describe('shared domain contracts', () => {
 })
 
 describe('event contracts', () => {
+  it('validates bundle and assignment planning events', () => {
+    const bundle = {
+      schemaVersion: 2,
+      runId: identifiers.runId,
+      requestId: identifiers.requestId,
+      bundleId: 'bundle_event_001',
+      taskIds: [identifiers.taskId],
+      scheduledWindow: timeWindow,
+      totalActivityDurationMinutes: 20,
+      waitingMinutes: 0,
+      requiredExperience: [],
+      reasonCodes: ['single_task_bundle']
+    } as const
+    const assignment = {
+      schemaVersion: 2,
+      runId: identifiers.runId,
+      requestId: identifiers.requestId,
+      assignmentId: 'assignment_event_001',
+      bundleId: bundle.bundleId,
+      candidateId: candidate.candidateId,
+      taskIds: bundle.taskIds,
+      scheduledWindow: bundle.scheduledWindow,
+      isSimulation: true
+    } as const
+
+    expect(
+      AgentEventSchema.parse({
+        schemaVersion: 2,
+        eventId: 'event_bundles_001',
+        runId: identifiers.runId,
+        requestId: identifiers.requestId,
+        sequence: 6,
+        occurredAt: '2026-08-01T09:00:30.000Z',
+        type: 'bundles.planned',
+        message: 'A deterministic bundle has been planned.',
+        isSimulation: true,
+        data: { bundles: [bundle], splitReasonCodes: [] }
+      })
+    ).toMatchObject({ type: 'bundles.planned' })
+    expect(
+      AgentEventSchema.parse({
+        schemaVersion: 2,
+        eventId: 'event_assignments_001',
+        runId: identifiers.runId,
+        requestId: identifiers.requestId,
+        sequence: 7,
+        occurredAt: '2026-08-01T09:00:31.000Z',
+        type: 'assignments.planned',
+        message: 'A synthetic helper has been assigned.',
+        isSimulation: true,
+        data: { assignments: [assignment] }
+      })
+    ).toMatchObject({ type: 'assignments.planned' })
+  })
+
   it('requires the complete plan.updated evidence payload', () => {
     const event = {
       schemaVersion: 2,
@@ -460,6 +615,122 @@ describe('tool boundaries', () => {
     }
 
     expect(FindCandidatesCallSchema.parse(call).candidateProfiles).toEqual([])
+  })
+
+  it('validates a bundle-assignment tool result across multiple tasks', () => {
+    const readyTask = { ...task, status: 'ready' } as const
+    const secondTask = {
+      ...readyTask,
+      taskId: 'task_demo_002',
+      title: 'Pet walk',
+      estimatedDurationMinutes: 10
+    } as const
+    const bundle = {
+      schemaVersion: 2,
+      runId: identifiers.runId,
+      requestId: identifiers.requestId,
+      bundleId: 'bundle_tool_001',
+      taskIds: [task.taskId, secondTask.taskId],
+      scheduledWindow: timeWindow,
+      totalActivityDurationMinutes: 30,
+      waitingMinutes: 0,
+      requiredExperience: [],
+      reasonCodes: ['within_helper_duration_limit']
+    } as const
+    const assignment = {
+      schemaVersion: 2,
+      runId: identifiers.runId,
+      requestId: identifiers.requestId,
+      assignmentId: 'assignment_tool_001',
+      bundleId: bundle.bundleId,
+      candidateId: candidate.candidateId,
+      taskIds: bundle.taskIds,
+      scheduledWindow: bundle.scheduledWindow,
+      isSimulation: true
+    } as const
+    const call = {
+      schemaVersion: 2,
+      runId: identifiers.runId,
+      requestId: identifiers.requestId,
+      toolCallId: 'tool_call_bundle_001',
+      tasks: [readyTask, secondTask],
+      candidateProfiles: []
+    } as const
+    const result = {
+      schemaVersion: 2,
+      runId: identifiers.runId,
+      requestId: identifiers.requestId,
+      toolCallId: call.toolCallId,
+      ok: true,
+      data: {
+        processedTaskIds: [task.taskId, secondTask.taskId],
+        bundles: [bundle],
+        assignments: [assignment],
+        unassignedTaskIds: [],
+        splitReasonCodes: []
+      }
+    } as const
+
+    expect(BuildBundleAssignmentsCallSchema.parse(call)).toEqual(call)
+    expect(() =>
+      BuildBundleAssignmentsCallSchema.parse({
+        ...call,
+        tasks: [{ ...readyTask, status: 'blocked' }]
+      })
+    ).toThrow()
+    expect(BuildBundleAssignmentsResultSchema.parse(result)).toEqual(result)
+    expect(() =>
+      BuildBundleAssignmentsResultSchema.parse({
+        ...result,
+        data: {
+          ...result.data,
+          assignments: [{ ...assignment, taskIds: [secondTask.taskId] }]
+        }
+      })
+    ).toThrow()
+    expect(() =>
+      BuildBundleAssignmentsResultSchema.parse({
+        ...result,
+        data: { ...result.data, unassignedTaskIds: [task.taskId] }
+      })
+    ).toThrow()
+    expect(
+      BuildBundleAssignmentsResultSchema.parse({
+        schemaVersion: 2,
+        runId: identifiers.runId,
+        requestId: identifiers.requestId,
+        toolCallId: call.toolCallId,
+        ok: false,
+        error: { code: 'input_invalid', message: 'Invalid bundle input.', retryable: false }
+      })
+    ).toMatchObject({ ok: false })
+
+    const firstBundle = { ...bundle, taskIds: [task.taskId], bundleId: 'bundle_overlap_001' }
+    const secondBundle = {
+      ...bundle,
+      taskIds: [secondTask.taskId],
+      bundleId: 'bundle_overlap_002'
+    }
+    expect(() =>
+      BuildBundleAssignmentsResultSchema.parse({
+        ...result,
+        data: {
+          processedTaskIds: [task.taskId, secondTask.taskId],
+          bundles: [firstBundle, secondBundle],
+          assignments: [
+            { ...assignment, bundleId: firstBundle.bundleId, taskIds: firstBundle.taskIds },
+            {
+              ...assignment,
+              assignmentId: 'assignment_overlap_002',
+              bundleId: secondBundle.bundleId,
+              taskIds: secondBundle.taskIds
+            }
+          ],
+          unassignedTaskIds: [],
+          splitReasonCodes: []
+        }
+      })
+    ).toThrow()
   })
 
   it('enforces the three-attempt and ten-minute outreach policy', () => {

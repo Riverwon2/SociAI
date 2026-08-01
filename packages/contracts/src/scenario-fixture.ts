@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { AssignmentSchema, TaskBundleSchema } from './assignment.js'
 import { CandidateSchema } from './candidate.js'
 import { AgentEventTypeSchema } from './events.js'
 import { FinalResultSchema } from './final-result.js'
@@ -7,10 +8,25 @@ import { InitialRequestSchema } from './initial-request.js'
 import { CandidateIdSchema, SchemaVersionSchema, TaskIdSchema } from './shared.js'
 import { TaskSchema } from './task.js'
 
+function haveSameTaskIds(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((taskId, index) => taskId === right[index])
+}
+
+function windowsOverlap(
+  left: { scheduledWindow: { startAt: string; endAt: string } },
+  right: { scheduledWindow: { startAt: string; endAt: string } }
+): boolean {
+  return (
+    Date.parse(left.scheduledWindow.startAt) < Date.parse(right.scheduledWindow.endAt) &&
+    Date.parse(right.scheduledWindow.startAt) < Date.parse(left.scheduledWindow.endAt)
+  )
+}
+
 export const DemoScenarioIdSchema = z.enum([
   'first_candidate_accepts',
   'reject_timeout_accept',
-  'mixed_risk_partial_match'
+  'mixed_risk_partial_match',
+  'multi_helper_split'
 ])
 
 export const ScenarioResponseSchema = z
@@ -42,6 +58,8 @@ export const DemoScenarioFixtureSchema = z
     initialRequest: InitialRequestSchema,
     tasks: z.array(TaskSchema).min(1),
     candidates: z.array(CandidateSchema),
+    expectedBundles: z.array(TaskBundleSchema).max(10).optional(),
+    expectedAssignments: z.array(AssignmentSchema).max(10).optional(),
     responseSequence: z.array(ScenarioResponseSchema),
     expectedRawToolCorrelations: z.array(RawToolCorrelationExpectationSchema).min(1),
     expectedEventTypes: z.array(AgentEventTypeSchema).min(1),
@@ -91,6 +109,68 @@ export const DemoScenarioFixtureSchema = z
           message: 'Candidate context must reference this fixture request, run, and task',
           path: ['candidates', index]
         })
+      }
+    }
+
+    for (const [index, bundle] of (fixture.expectedBundles ?? []).entries()) {
+      if (bundle.runId !== expectedRunId || bundle.requestId !== fixture.initialRequest.requestId) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Bundle context must match the fixture request and run',
+          path: ['expectedBundles', index]
+        })
+      }
+      for (const taskId of bundle.taskIds) {
+        if (!taskIds.has(taskId)) {
+          context.addIssue({
+            code: 'custom',
+            message: 'Bundle references an unknown task',
+            path: ['expectedBundles', index, 'taskIds']
+          })
+        }
+      }
+    }
+
+    const expectedBundles = fixture.expectedBundles ?? []
+    const expectedAssignments = fixture.expectedAssignments ?? []
+    const bundleIds = new Set(expectedBundles.map(({ bundleId }) => bundleId))
+    for (const [index, assignment] of expectedAssignments.entries()) {
+      const bundle = expectedBundles.find(({ bundleId }) => bundleId === assignment.bundleId)
+      if (
+        assignment.runId !== expectedRunId ||
+        assignment.requestId !== fixture.initialRequest.requestId ||
+        !bundleIds.has(assignment.bundleId) ||
+        !candidateIds.has(assignment.candidateId) ||
+        bundle === undefined ||
+        !haveSameTaskIds(bundle.taskIds, assignment.taskIds)
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'Assignment must reference this fixture request, bundle, candidate, and bundle tasks',
+          path: ['expectedAssignments', index]
+        })
+      }
+    }
+
+    const assignedTaskIds = expectedAssignments.flatMap(({ taskIds }) => taskIds)
+    if (new Set(assignedTaskIds).size !== assignedTaskIds.length) {
+      context.addIssue({
+        code: 'custom',
+        message: 'A fixture task cannot appear in multiple expected assignments',
+        path: ['expectedAssignments']
+      })
+    }
+
+    for (const [index, assignment] of expectedAssignments.entries()) {
+      for (const other of expectedAssignments.slice(index + 1)) {
+        if (assignment.candidateId === other.candidateId && windowsOverlap(assignment, other)) {
+          context.addIssue({
+            code: 'custom',
+            message: 'A fixture candidate cannot have overlapping expected assignments',
+            path: ['expectedAssignments', index, 'scheduledWindow']
+          })
+        }
       }
     }
 
