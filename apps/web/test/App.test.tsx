@@ -65,6 +65,36 @@ describe('role 3 demo UI', () => {
     expect(screen.getByRole('heading', { name: '도움을 완료했어요' })).toBeInTheDocument()
   })
 
+  it('delivers the requester thank-you note to the helper after the mission completes', async () => {
+    render(<App replayIntervalMs={1} />)
+    fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
+    await advanceReplayUntilPause()
+    fireEvent.click(screen.getByRole('button', { name: '수락' }))
+    await advanceReplayUntilPause()
+
+    expect(screen.queryByText('도움이 완료되었습니다!')).toBeNull()
+    expect(screen.getByLabelText('도움 신청 진행 단계')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '미션 완료' }))
+    expect(screen.getByText('도움이 완료되었습니다!')).toBeInTheDocument()
+    expect(screen.getByText('감사의 메시지를 남겨주세요!')).toBeInTheDocument()
+    expect(screen.queryByLabelText('도움 신청 진행 단계')).toBeNull()
+
+    const send = screen.getByRole('button', { name: '메시지 보내기' })
+    expect(send).toBeDisabled()
+    expect(screen.getByText('요청 내용')).toBeInTheDocument()
+    fireEvent.change(screen.getByPlaceholderText(/따뜻한 한마디/), {
+      target: { value: '  덕분에 큰 도움이 됐어요.  ' }
+    })
+    fireEvent.click(send)
+
+    expect(screen.getByText('감사의 마음을 전했어요')).toBeInTheDocument()
+    expect(screen.getByText('신청자가 보낸 감사 메시지')).toBeInTheDocument()
+    expect(screen.getAllByText('덕분에 큰 도움이 됐어요.')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: '메시지 보내기' })).toBeNull()
+    expect(screen.queryByText('요청 내용')).toBeNull()
+  })
+
   it('requires reject, timeout, and accept interactions before the third candidate succeeds', async () => {
     render(<App replayIntervalMs={1} />)
     fireEvent.click(screen.getByRole('button', { name: /거절과 무응답 뒤 재섭외/ }))

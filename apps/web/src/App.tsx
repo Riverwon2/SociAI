@@ -342,6 +342,7 @@ function RunWorkspace({
   const tasks = useMemo(() => deriveTaskViews(run.normalized), [run.normalized])
   const participantView = useMemo(() => deriveParticipantDemoView(run), [run])
   const [missionCompleted, setMissionCompleted] = useState(false)
+  const [thanksMessage, setThanksMessage] = useState<string | null>(null)
   const expectedCount =
     run.scenario?.expectedEventTypes.length ??
     (run.result === null ? run.normalized.items.length + 1 : run.normalized.items.length)
@@ -358,6 +359,8 @@ function RunWorkspace({
         onFixtureDecision={onFixtureDecision}
         missionCompleted={missionCompleted}
         onMissionComplete={() => setMissionCompleted(true)}
+        thanksMessage={thanksMessage}
+        onSendThanks={setThanksMessage}
         onReset={onReset}
       />
 

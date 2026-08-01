@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import type { ParticipantDemoView, RequesterDemoStage } from './participant-demo-model.js'
 
 interface ParticipantDemoProps {
@@ -8,6 +10,8 @@ interface ParticipantDemoProps {
   readonly onFixtureDecision: (decision: FixtureReplayDecision) => void
   readonly missionCompleted: boolean
   readonly onMissionComplete: () => void
+  readonly thanksMessage: string | null
+  readonly onSendThanks: (message: string) => void
   readonly onReset: () => void
 }
 
@@ -21,6 +25,8 @@ export function ParticipantDemo({
   onFixtureDecision,
   missionCompleted,
   onMissionComplete,
+  thanksMessage,
+  onSendThanks,
   onReset
 }: ParticipantDemoProps) {
   const requester = requesterCopy(view)
@@ -61,7 +67,11 @@ export function ParticipantDemo({
                 </div>
               )}
             </div>
-            <RequesterProgress stage={view.requesterStage} />
+            {missionCompleted ? (
+              <ThanksPanel thanksMessage={thanksMessage} onSendThanks={onSendThanks} />
+            ) : (
+              <RequesterProgress stage={view.requesterStage} />
+            )}
             {view.result !== null && (
               <button className="participant-reset" type="button" onClick={onReset}>
                 새 도움 요청하기
@@ -87,6 +97,7 @@ export function ParticipantDemo({
               onFixtureDecision={onFixtureDecision}
               missionCompleted={missionCompleted}
               onMissionComplete={onMissionComplete}
+              thanksMessage={thanksMessage}
             />
           </div>
         </article>
@@ -156,6 +167,51 @@ function CareFace({ stage }: { readonly stage: RequesterDemoStage }) {
   )
 }
 
+function ThanksPanel({
+  thanksMessage,
+  onSendThanks
+}: {
+  readonly thanksMessage: string | null
+  readonly onSendThanks: (message: string) => void
+}) {
+  const [draft, setDraft] = useState('')
+
+  if (thanksMessage !== null) {
+    return (
+      <div className="thanks-panel thanks-panel--sent" role="status">
+        <p className="thanks-title">감사의 마음을 전했어요</p>
+        <blockquote>{thanksMessage}</blockquote>
+        <small>수락자 화면으로 전달되었습니다.</small>
+      </div>
+    )
+  }
+
+  return (
+    <form
+      className="thanks-panel"
+      onSubmit={(event) => {
+        event.preventDefault()
+        const message = draft.trim()
+        if (message !== '') onSendThanks(message)
+      }}
+    >
+      <p className="thanks-title">도움이 완료되었습니다!</p>
+      <label>
+        <span>감사의 메시지를 남겨주세요!</span>
+        <input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="따뜻한 한마디를 남겨보세요"
+          maxLength={200}
+        />
+      </label>
+      <button type="submit" disabled={draft.trim() === ''}>
+        메시지 보내기
+      </button>
+    </form>
+  )
+}
+
 function RequesterProgress({ stage }: { readonly stage: RequesterDemoStage }) {
   const current = requesterProgress(stage)
   return (
@@ -183,7 +239,8 @@ function HelperPanel({
   replayFeedback,
   onFixtureDecision,
   missionCompleted,
-  onMissionComplete
+  onMissionComplete,
+  thanksMessage
 }: {
   readonly view: ParticipantDemoView
   readonly mode: 'live' | 'replay'
@@ -192,6 +249,7 @@ function HelperPanel({
   readonly onFixtureDecision: (decision: FixtureReplayDecision) => void
   readonly missionCompleted: boolean
   readonly onMissionComplete: () => void
+  readonly thanksMessage: string | null
 }) {
   if (view.helperStage === 'waiting' || view.requestCard === null) {
     return (
@@ -221,7 +279,17 @@ function HelperPanel({
             ? '따뜻한 세상을 만드는 데 함께해 주셔서 감사합니다.'
             : '약속한 시간에 미션을 수행한 뒤 아래 완료 버튼을 눌러주세요.'}
         </p>
-        <RequestSummary card={view.requestCard} compact />
+        {thanksMessage === null ? (
+          <RequestSummary card={view.requestCard} compact />
+        ) : (
+          <div className="thanks-received" role="status">
+            <span aria-hidden="true">♥</span>
+            <div>
+              <small>신청자가 보낸 감사 메시지</small>
+              <p>{thanksMessage}</p>
+            </div>
+          </div>
+        )}
         <button
           className="mission-complete-button"
           type="button"
@@ -254,7 +322,6 @@ function HelperPanel({
     <div className="helper-request">
       <div className="incoming-request-label">
         <span>새 도움 요청</span>
-        <b>{formatDistance(view.requestCard.distanceKm)}</b>
       </div>
       <h2 id="helper-heading">우리 동네에 도움이 필요해요</h2>
       <RequestSummary card={view.requestCard} />
@@ -328,6 +395,9 @@ function RequestSummary({
           <small>요청 내용</small>
           <strong>{card.title}</strong>
         </div>
+        {card.distanceKm !== null && (
+          <b className="request-card-distance">{formatDistance(card.distanceKm)}</b>
+        )}
       </div>
       {!compact && <p>{card.description}</p>}
       <dl>
@@ -405,8 +475,7 @@ function formatWindow(startAt: string, endAt: string) {
   return `${formatter.format(new Date(startAt))}–${formatter.format(new Date(endAt))}`
 }
 
-function formatDistance(distanceKm: number | null) {
-  if (distanceKm === null) return '가까운 이웃'
-  if (distanceKm < 1) return `${Math.round(distanceKm * 1_000)}m 거리`
-  return `${distanceKm.toFixed(1)}km 거리`
+function formatDistance(distanceKm: number) {
+  if (distanceKm < 1) return `${Math.round(distanceKm * 1_000)}m`
+  return `${distanceKm.toFixed(1)}km`
 }
