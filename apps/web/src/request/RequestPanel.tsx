@@ -4,7 +4,6 @@ import type { DemoScenarioFixture, InitialRequest } from '@30-minute-exchange/co
 import { demoScenarios } from '../demo/scenarios.js'
 import {
   fieldsFromFixture,
-  getSeoulDate,
   parseRequestForm,
   type RequestFormFields
 } from './request-form-model.js'
@@ -29,22 +28,17 @@ export function RequestPanel({
   const scenario = demoScenarios.find(({ fixture }) => fixture.scenarioId === selectedScenarioId)
   if (scenario === undefined) throw new Error('Selected scenario is unavailable')
 
-  // A replay keeps the fixture's own calendar day so its recorded events stay
-  // consistent; a live run schedules onto today. The same day has to build the
-  // form fields and validate them, or the two disagree once the fixture date
-  // has passed.
-  const formDate =
-    executionMode === 'replay'
-      ? getSeoulDate(new Date(scenario.fixture.initialRequest.timeWindow.startAt))
-      : undefined
-
-  const [fields, setFields] = useState(() => fieldsFromFixture(scenario.fixture, formDate))
+  // A request is always scheduled for the current local day, replay included, so
+  // a fixture keeps its time of day and moves onto today. Building the fields and
+  // validating them both fall back to that same day; pinning either one to the
+  // fixture's own date makes the two disagree once that date has passed.
+  const [fields, setFields] = useState(() => fieldsFromFixture(scenario.fixture))
   const [errors, setErrors] = useState<readonly string[]>([])
 
   useEffect(() => {
-    setFields(fieldsFromFixture(scenario.fixture, formDate))
+    setFields(fieldsFromFixture(scenario.fixture))
     setErrors([])
-  }, [scenario, formDate])
+  }, [scenario])
 
   const update = <TKey extends keyof RequestFormFields>(
     key: TKey,
@@ -53,7 +47,7 @@ export function RequestPanel({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const parsed = parseRequestForm(fields, scenario.fixture.initialRequest.requestId, formDate)
+    const parsed = parseRequestForm(fields, scenario.fixture.initialRequest.requestId)
     if (!parsed.success) {
       setErrors(parsed.errors)
       return
