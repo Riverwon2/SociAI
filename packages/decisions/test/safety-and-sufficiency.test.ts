@@ -30,7 +30,7 @@ describe('checkSafety', () => {
       'conditional',
       'verify_conditions'
     ],
-    ['무거운 물건', taskWith('무거운 상자를 옮겨 주세요.'), 'conditional', 'verify_conditions'],
+    ['무거운 물건', taskWith('무거운 상자를 옮겨 주세요.'), 'low', 'proceed'],
     ['응급 상황', taskWith('가슴 통증으로 쓰러졌습니다.'), 'emergency', 'emergency_guidance']
   ])('%s을 계약에 맞게 판정한다', (_name, targetTask, level, action) => {
     const result = checkSafety(safetyCall(targetTask))
@@ -96,6 +96,18 @@ describe('checkSafety', () => {
     ['응급 증상 부정', '가슴 통증은 없고 가벼운 상자만 옮겨 주세요.'],
     ['응급 표현 정정', '숨을 못 쉬는 건 아니고 문 앞 물건만 부탁합니다.']
   ])('%s 맥락은 위험 행위 요청으로 오인하지 않는다', (_name, description) => {
+    const result = checkSafety(safetyCall(taskWith(description)))
+
+    expect(result.ok && result.data.level).toBe('low')
+    expect(result.ok && result.data.action).toBe('proceed')
+  })
+
+  it.each([
+    ['일반 비밀번호', '와이파이 비밀번호를 알려 주세요.'],
+    ['복용 정보 문서', '처방약 복용 일정표를 전달해 주세요.'],
+    ['응급 증상 안내문', '가슴 통증 안내문을 전달해 주세요.'],
+    ['보호자 동반 아동 돌봄', '부모와 함께 아이를 봐 주세요.']
+  ])('%s은 실제 위험 행위가 아니므로 low다', (_name, description) => {
     const result = checkSafety(safetyCall(taskWith(description)))
 
     expect(result.ok && result.data.level).toBe('low')

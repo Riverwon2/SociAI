@@ -63,8 +63,16 @@ describe('deterministic sufficiency policy', () => {
     )
   })
 
-  it('수량을 모르는 상자 이동 요청은 item_quantity가 부족하다', () => {
-    expect(missingCodes(taskWith('상자를 현관에서 창고로 옮겨 주세요.'))).toContain('item_quantity')
+  it('수량을 모르는 복수 상자 이동 요청은 item_quantity가 부족하다', () => {
+    expect(missingCodes(taskWith('여러 상자를 현관에서 창고로 옮겨 주세요.'))).toContain(
+      'item_quantity'
+    )
+  })
+
+  it('단수 목적어로 범위가 분명한 상자는 추가 수량을 요구하지 않는다', () => {
+    expect(missingCodes(taskWith('상자를 현관에서 창고로 옮겨 주세요.'))).not.toContain(
+      'item_quantity'
+    )
   })
 
   it('무거운 물건의 무게를 모르면 item_weight가 부족하다', () => {

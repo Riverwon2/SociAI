@@ -24,7 +24,8 @@ type SufficiencyRule = Readonly<{
 const TRANSPORT_ACTION_PATTERN = /(?:가져다|가져오|전달|배달|옮|운반)/u
 const PICKUP_ACTION_PATTERN = /(?:가져다|가져오|받아|수령)/u
 const DROPOFF_ACTION_PATTERN = /(?:가져다|전달|배달|옮|운반|놓)/u
-const BULK_OBJECT_PATTERN = /(?:상자|짐|물건|가구)/u
+const AMBIGUOUS_BULK_QUANTITY_PATTERN =
+  /(?:(?:여러|몇|다수|많은|전부|모든)\s*(?:상자|짐|물건|가구)|(?:상자|짐|물건|가구)들)/u
 const LARGE_OR_HEAVY_PATTERN = /(?:무거운|대형|큰\s*(?:가구|상자|짐|물건))/u
 const LARGE_ITEM_PATTERN = /(?:대형\s*(?:가구|상자|짐|물건)|큰\s*(?:가구|상자|짐|물건))/u
 const HAS_PICKUP_PATTERN = /(?:에서|로부터)/u
@@ -62,7 +63,7 @@ const SUFFICIENCY_RULES: readonly SufficiencyRule[] = Object.freeze([
     message: '수행시간에 영향을 주는 물품 수량을 확인할 수 없습니다.',
     isMissing: (text) =>
       TRANSPORT_ACTION_PATTERN.test(text) &&
-      BULK_OBJECT_PATTERN.test(text) &&
+      AMBIGUOUS_BULK_QUANTITY_PATTERN.test(text) &&
       !HAS_QUANTITY_PATTERN.test(text)
   },
   {

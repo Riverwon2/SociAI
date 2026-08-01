@@ -52,6 +52,11 @@ const GENERIC_ABSENCE_PATTERNS = [
   /(?:빈집|빈\s*집|빈\s*사무실|빈\s*회사)/u
 ] as const
 
+const REQUESTER_AND_GUARDIAN_ABSENT_PATTERNS = [
+  /(?:요청자|저|본인)와\s*보호자(?:는|가|도)?\s*(?:모두\s*)?없/u,
+  /(?:요청자|저|본인)와\s*보호자(?:는|가|도)?\s*(?:모두\s*)?(?:현장에\s*)?있지\s*않/u
+] as const
+
 /**
  * Verifies the on-site-person condition only after a home/company entry task
  * has been classified as conditional. Only facts from the initial request are
@@ -91,6 +96,7 @@ export function verifyIndoorEntryCondition(
     GUARDIAN_ABSENT_PATTERNS
   )
   const genericAbsence = matchesAny(scopedClauses, GENERIC_ABSENCE_PATTERNS)
+  const combinedAbsence = matchesAny(scopedClauses, REQUESTER_AND_GUARDIAN_ABSENT_PATTERNS)
 
   if (
     (requester.present && requester.absent) ||
@@ -112,7 +118,7 @@ export function verifyIndoorEntryCondition(
     }
   }
 
-  if (genericAbsence || (requester.absent && guardian.absent)) {
+  if (genericAbsence || combinedAbsence || (requester.absent && guardian.absent)) {
     return {
       status: 'verified_absent',
       action: 'block',

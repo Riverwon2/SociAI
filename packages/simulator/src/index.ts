@@ -1,4 +1,4 @@
-export { sendOutreach } from './send-outreach.js'
+export { sendOutreach, sendOutreachAt } from './send-outreach.js'
 export {
   sendClarificationInvite,
   type ClarificationInviteCall,
@@ -10,3 +10,4 @@ export {
   type ClarificationOutcome
 } from './scenario-policy.js'
 export { advanceVirtualTime } from './virtual-clock.js'
+export { createSyntheticCandidateProfiles } from './synthetic-candidates.js'

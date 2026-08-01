@@ -70,6 +70,17 @@ describe('verifyIndoorEntryCondition', () => {
     expect(result.reasonCodes).toEqual(['requester_and_guardian_absent'])
   })
 
+  it('요청자와 보호자가 모두 없다는 결합 표현도 차단한다', () => {
+    const result = verifyIndoorEntryCondition({
+      initialRequest: requestWith('집에는 요청자와 보호자가 모두 없습니다.'),
+      task: indoorTask()
+    })
+
+    expect(result.status).toBe('verified_absent')
+    expect(result.action).toBe('block')
+    expect(result.reasonCodes).toEqual(['requester_and_guardian_absent'])
+  })
+
   it('요청자가 부재해도 보호자가 현장에 있으면 조건을 통과한다', () => {
     const result = verifyIndoorEntryCondition({
       initialRequest: requestWith(

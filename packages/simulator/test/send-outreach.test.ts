@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { SendOutreachResultSchema } from '@30-minute-exchange/contracts'
 
-import { sendOutreach } from '../src/send-outreach.js'
+import { sendOutreach, sendOutreachAt } from '../src/send-outreach.js'
 import { determineResponse } from '../src/scenario-policy.js'
 import { deterministicInteger } from '../src/seeded-random.js'
 import { outreachCall } from './fixtures.js'
@@ -33,6 +33,13 @@ describe('deterministic outreach simulator', () => {
     const first = sendOutreach(outreachCall(1, 'custom-seed'))
     const second = sendOutreach(outreachCall(1, 'custom-seed'))
     expect(second).toEqual(first)
+  })
+
+  it('재시도는 오케스트레이터의 누적 가상 시각을 기준으로 응답한다', () => {
+    const result = sendOutreachAt(outreachCall(3, 'retry-path-v1'), '2026-08-01T10:16:00.000Z')
+
+    expect(result.ok && result.data.outcome).toBe('accepted')
+    expect(result.ok && result.data.respondedAt).toBe('2026-08-01T10:25:00.000Z')
   })
 
   it('알 수 없는 시나리오도 유효한 결정론적 응답을 만든다', () => {
