@@ -21,8 +21,10 @@ interface BuildContext {
   taskIndex: number
   safetyIndex: number
   sufficiencyIndex: number
+  candidateIndex: number
   outreachIndex: number
   responseIndex: number
+  matchIndex: number
   revision: number
   lastOutcome: 'rejected' | 'timed_out' | null
 }
@@ -34,8 +36,10 @@ function createBuildContext(fixture: DemoScenarioFixture, request: InitialReques
     taskIndex: 0,
     safetyIndex: 0,
     sufficiencyIndex: 0,
+    candidateIndex: 0,
     outreachIndex: 0,
     responseIndex: 0,
+    matchIndex: 0,
     revision: 1,
     lastOutcome: null
   }
@@ -193,7 +197,12 @@ function assignmentsPayload(context: BuildContext) {
 }
 
 function candidatesPayload(context: BuildContext) {
-  const task = requireItem(actionableTasks(context.fixture), 0, 'candidate task')
+  const task = requireItem(
+    actionableTasks(context.fixture),
+    context.candidateIndex,
+    'candidate task'
+  )
+  context.candidateIndex += 1
   const candidates = context.fixture.candidates
     .filter(({ taskId }) => taskId === task.taskId)
     .map((candidate) => ({ ...candidate, requestId: context.request.requestId }))
@@ -293,8 +302,11 @@ function planUpdatedPayload(context: BuildContext) {
 }
 
 function matchPayload(context: BuildContext) {
-  const accepted = context.fixture.responseSequence.find(({ outcome }) => outcome === 'accepted')
+  const accepted = context.fixture.responseSequence.filter(({ outcome }) => outcome === 'accepted')[
+    context.matchIndex
+  ]
   if (accepted === undefined) throw new Error('Fixture requires an accepted response for match')
+  context.matchIndex += 1
   const task = requireTask(context.fixture.tasks, accepted.taskId)
   return {
     taskId: task.taskId,

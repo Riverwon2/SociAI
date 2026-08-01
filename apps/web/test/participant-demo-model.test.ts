@@ -14,29 +14,73 @@ describe('participant demo view model', () => {
     state = receiveThrough(state, events, 'request.created')
     expect(deriveParticipantDemoView(state)).toMatchObject({
       requesterStage: 'preparing',
-      helperStage: 'waiting'
+      helpers: []
     })
 
     state = receiveThrough(state, events, 'outreach.sent')
     expect(deriveParticipantDemoView(state)).toMatchObject({
       requesterStage: 'searching',
-      helperStage: 'request_received',
-      attempt: 1,
-      candidate: { displayName: '가상 이웃 하나' },
-      requestCard: {
-        title: '생필품 상자 수령',
-        regionLabel: '해오름동',
-        durationMinutes: 20,
-        distanceKm: 0.4
-      }
+      helpers: [
+        {
+          stage: 'request_received',
+          attempt: 1,
+          candidate: { displayName: '가상 이웃 하나' },
+          requestCard: {
+            title: '생필품 상자 수령',
+            regionLabel: '해오름동',
+            durationMinutes: 20,
+            distanceKm: 0.4
+          }
+        }
+      ]
     })
 
     state = receiveThrough(state, events, 'match.confirmed')
     expect(deriveParticipantDemoView(state)).toMatchObject({
       requesterStage: 'matched',
-      helperStage: 'mission',
-      matchedCandidateName: '가상 이웃 하나'
+      helpers: [{ stage: 'mission', matchedCandidateName: '가상 이웃 하나' }]
     })
+  })
+
+  it('keeps one connection per task when a request is split across neighbours', () => {
+    const fixture = getDemoScenario('three_way_conflict').fixture
+    const events = buildFixtureEvents(fixture)
+    const lastOutreach = events.reduce(
+      (last, event, index) => (event.type === 'outreach.sent' ? index : last),
+      -1
+    )
+    const afterOutreach = events
+      .slice(0, lastOutreach + 1)
+      .reduce(
+        (next, event) => runReducer(next, { type: 'agent.received', value: event }),
+        startedState(fixture)
+      )
+
+    const view = deriveParticipantDemoView(afterOutreach)
+    expect(view.helpers.map(({ taskTitle }) => taskTitle)).toEqual([
+      '아이 마중',
+      '택배 수령',
+      '배송 수령'
+    ])
+    expect(view.helpers.map(({ candidateName }) => candidateName)).toEqual([
+      '가상 이웃 하나',
+      '가상 이웃 두리',
+      '가상 이웃 세아'
+    ])
+    expect(view.helpers.every(({ stage }) => stage === 'request_received')).toBe(true)
+
+    const completed = events.reduce(
+      (next, event) => runReducer(next, { type: 'agent.received', value: event }),
+      startedState(fixture)
+    )
+    const done = deriveParticipantDemoView(completed)
+    expect(done.requesterStage).toBe('matched')
+    expect(done.helpers.map(({ stage }) => stage)).toEqual(['mission', 'mission', 'mission'])
+    expect(done.helpers.map(({ matchedCandidateName }) => matchedCandidateName)).toEqual([
+      '가상 이웃 하나',
+      '가상 이웃 두리',
+      '가상 이웃 세아'
+    ])
   })
 
   it('shows rerouting after rejection and moves to the next independent attempt', () => {
@@ -47,9 +91,7 @@ describe('participant demo view model', () => {
     state = receiveThrough(state, events, 'neighbor.replied')
     expect(deriveParticipantDemoView(state)).toMatchObject({
       requesterStage: 'searching',
-      helperStage: 'rerouting',
-      previousOutcome: 'rejected',
-      attempt: 1
+      helpers: [{ stage: 'rerouting', previousOutcome: 'rejected', attempt: 1 }]
     })
 
     const secondOutreachIndex = events.findIndex(
@@ -62,9 +104,9 @@ describe('participant demo view model', () => {
         startedState(fixture)
       )
     expect(deriveParticipantDemoView(state)).toMatchObject({
-      helperStage: 'request_received',
-      attempt: 2,
-      candidate: { displayName: '가상 이웃 둘' }
+      helpers: [
+        { stage: 'request_received', attempt: 2, candidate: { displayName: '가상 이웃 둘' } }
+      ]
     })
   })
 
@@ -77,8 +119,7 @@ describe('participant demo view model', () => {
 
     expect(deriveParticipantDemoView(state)).toMatchObject({
       requesterStage: 'partially_matched',
-      helperStage: 'mission',
-      requestCard: { title: '문서봉투 전달' },
+      helpers: [{ stage: 'mission', requestCard: { title: '문서봉투 전달' } }],
       result: { status: 'partially_matched' }
     })
   })

@@ -12,6 +12,8 @@ const eventLabels: Record<AgentEvent['type'], string> = {
   'safety.checked': '안전 확인',
   'sufficiency.checked': '정보 확인',
   'task.held': '작업 보류',
+  'clarification.invited': '정보 확인 대화 요청',
+  'clarification.responded': '정보 확인 대화 응답',
   'bundles.planned': '작업 묶음 계획',
   'assignments.planned': '이웃 배정 계획',
   'candidates.ranked': '후보 정렬',
@@ -58,6 +60,9 @@ export function EventTimeline({ items }: EventTimelineProps) {
               {item.kind === 'known' && item.event.type === 'plan.updated' && (
                 <PlanUpdateDetails data={item.event.data} />
               )}
+              {item.kind === 'known' && item.event.type === 'clarification.responded' && (
+                <ClarificationResponseDetails data={item.event.data} />
+              )}
               {item.kind === 'unknown' && (
                 <p className="unknown-event-copy">
                   <code>{item.type}</code> — 지원하지 않는 이벤트지만 실행은 계속됩니다.
@@ -69,6 +74,20 @@ export function EventTimeline({ items }: EventTimelineProps) {
       </ol>
       {items.length === 0 && <p className="empty-state">첫 이벤트를 기다리고 있습니다.</p>}
     </section>
+  )
+}
+
+function ClarificationResponseDetails({
+  data
+}: {
+  readonly data: Extract<AgentEvent, { type: 'clarification.responded' }>['data']
+}) {
+  return (
+    <div className="clarification-event-result">
+      <span>{data.outcome === 'conversation_agreed' ? '대화 동의' : '대화 거절'}</span>
+      <p>{data.requesterMessage}</p>
+      <small>작업 상태: 정보 보류 · 실제 매칭 아님</small>
+    </div>
   )
 }
 
