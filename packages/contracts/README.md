@@ -32,6 +32,14 @@ const event = parseAgentEventSafely(untrustedEvent)
 - `examples/reject-timeout-accept.json`
 - `examples/mixed-risk-partial-match.json`
 
+## Multi-task bundle matching
+
+`TaskBundle` records the tasks one helper can perform together: no more than 30 active minutes and 20 waiting minutes. `Assignment` links that bundle to one candidate and a scheduled window.
+
+Task timing is explicit or inherited from the initial request window. An `llm_estimated` duration must be 20 minutes or less. Route and map data are intentionally excluded from this demo.
+
+The `examples/multi-helper-split.json` fixture covers time-separated tasks that must be assigned to two synthetic helpers. See [the engineering specification](../../docs/engineering/multi-task-bundle-matching.md) for ownership and deterministic scheduling boundaries.
+
 세 fixture는 A의 오케스트레이터 테스트, B의 결정론 테스트, C의 UI fixture와 E2E에서 동일하게 사용한다.
 
 `expectedRawToolCorrelations`는 call/result 순서와 `toolCallId`만 정의한다. 실제 `RawToolEvent.raw` replay fixture는 A가 공식 SDK의 라이브 실행에서 캡처한 payload만 추가하며, 계약을 맞추기 위한 가짜 provider payload를 만들지 않는다.

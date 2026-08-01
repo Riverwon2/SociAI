@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { AssignmentSchema } from './assignment.js'
 import {
   CandidateIdSchema,
   IsoDateTimeSchema,
@@ -29,6 +30,7 @@ export const TaskResultSchema = z
     taskId: TaskIdSchema,
     status: TaskResultStatusSchema,
     matchedCandidateId: CandidateIdSchema.optional(),
+    assignmentId: z.string().trim().min(1).max(128).optional(),
     reasonCodes: z.array(z.string().trim().min(1).max(100)).max(20),
     userMessage: z.string().trim().min(1).max(1_000)
   })
@@ -84,6 +86,7 @@ export const FinalResultSchema = z
     requestId: RequestIdSchema,
     status: FinalResultStatusSchema,
     taskResults: z.array(TaskResultSchema),
+    assignmentResults: z.array(AssignmentSchema).max(10).optional(),
     userMessage: z.string().trim().min(1).max(2_000),
     completedAt: IsoDateTimeSchema,
     simulatedComponents: z.array(SimulatedComponentSchema),
