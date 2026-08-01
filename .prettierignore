@@ -1,0 +1,10 @@
+.claude/
+.git/
+coverage/
+dist/
+node_modules/
+AGENT-kor.md
+AGENTS.md
+plan_updated.md
+role.md
+summary.md
