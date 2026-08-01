@@ -25,6 +25,16 @@ type Schedule = Readonly<{
   scheduledWindow: TimeWindow
 }>
 
+type ScheduleFailureReason =
+  | 'helper_duration_exceeds_thirty_minutes'
+  | 'waiting_time_exceeds_twenty_minutes'
+  | 'task_windows_do_not_align'
+  | 'task_window_cannot_fit_estimated_duration'
+
+type ScheduleAttempt =
+  | Readonly<{ ok: true; schedule: Schedule }>
+  | Readonly<{ ok: false; reasonCode: ScheduleFailureReason }>
+
 export type BundleAssignmentPlan = Readonly<{
   bundles: readonly TaskBundle[]
   assignments: readonly Assignment[]
@@ -108,24 +118,24 @@ function createBundles(
       if (candidateTask === undefined) break
       const attempted = scheduleTasks([...groupedTasks, candidateTask])
 
-      if (attempted !== null) {
+      if (attempted.ok) {
         groupedTasks = [...groupedTasks, candidateTask]
         remaining.splice(candidateIndex, 1)
         continue
       }
 
-      splitReasonCodes.push(determineSplitReason([...groupedTasks, candidateTask]))
+      splitReasonCodes.push(attempted.reasonCode)
       candidateIndex += 1
     }
 
-    const schedule = scheduleTasks(groupedTasks)
-    if (schedule === null) {
-      splitReasonCodes.push('task_window_cannot_fit_estimated_duration')
+    const attempted = scheduleTasks(groupedTasks)
+    if (!attempted.ok) {
+      splitReasonCodes.push(attempted.reasonCode)
       unassignedTaskIds.push(...groupedTasks.map((task) => task.taskId))
       continue
     }
 
-    bundles.push(createBundle(groupedTasks, schedule, context))
+    bundles.push(createBundle(groupedTasks, attempted.schedule, context))
   }
 
   return { bundles, unassignedTaskIds, splitReasonCodes }
@@ -178,9 +188,9 @@ function resolveAssignments({
       const individualBundles = bundle.taskIds.flatMap((taskId) => {
         const task = tasksById.get(taskId)
         if (task === undefined) return []
-        const schedule = scheduleTasks([task])
-        if (schedule === null) return []
-        return [createBundle([task], schedule, context)]
+        const attempted = scheduleTasks([task])
+        if (!attempted.ok) return []
+        return [createBundle([task], attempted.schedule, context)]
       })
       const split = resolveAssignments({
         bundles: individualBundles,
@@ -230,59 +240,153 @@ function createBundle(
   })
 }
 
-function scheduleTasks(tasks: readonly Task[], minimumStartAt?: number): Schedule | null {
-  const sortedTasks = [...tasks].sort(compareTasks)
-  const scheduledTasks: ScheduledTask[] = []
-  let previousEndAt: number | null = null
-  let totalActivityDurationMinutes = 0
-
-  for (const task of sortedTasks) {
-    const windowStartAt = Date.parse(task.timeWindow.startAt)
-    const windowEndAt = Date.parse(task.timeWindow.endAt)
-    const durationMs = task.estimatedDurationMinutes * MINUTE_MS
-    const isFlexible = task.timeCertainty === 'flexible'
-    const startAt: number = isFlexible
-      ? Math.max(windowStartAt, previousEndAt ?? windowStartAt, minimumStartAt ?? windowStartAt)
-      : windowStartAt
-    const endAt: number = startAt + durationMs
-
-    if (previousEndAt !== null && startAt < previousEndAt) return null
-    if (endAt > windowEndAt) return null
-
-    totalActivityDurationMinutes += task.estimatedDurationMinutes
-    scheduledTasks.push({ task, startAt, endAt })
-    previousEndAt = endAt
+function scheduleTasks(tasks: readonly Task[], boundary?: TimeWindow): ScheduleAttempt {
+  const totalDuration = tasks.reduce((total, task) => total + task.estimatedDurationMinutes, 0)
+  if (totalDuration > MAX_BUNDLE_ACTIVITY_DURATION_MINUTES) {
+    return { ok: false, reasonCode: 'helper_duration_exceeds_thirty_minutes' }
   }
 
-  const first = scheduledTasks[0]
-  const last = scheduledTasks.at(-1)
-  if (first === undefined || last === undefined) return null
-  if (totalActivityDurationMinutes > MAX_BUNDLE_ACTIVITY_DURATION_MINUTES) return null
-  const waitingMinutes = calculateFixedTaskWaitingMinutes(scheduledTasks)
-  if (waitingMinutes > MAX_BUNDLE_WAITING_MINUTES) return null
+  if (tasks.length === 0 || tasks.some((task) => !canFitOwnWindow(task))) {
+    return { ok: false, reasonCode: 'task_window_cannot_fit_estimated_duration' }
+  }
+
+  const fixedSchedule = scheduleFixedTasks(tasks, boundary)
+  if (fixedSchedule === null) {
+    return { ok: false, reasonCode: 'task_windows_do_not_align' }
+  }
+
+  const flexibleTasks = tasks
+    .filter((task) => task.timeCertainty === 'flexible')
+    .sort(compareFlexibleTasks)
+  const scheduledTasks = placeFlexibleTasks(flexibleTasks, fixedSchedule, boundary, true)
+  if (scheduledTasks !== null) {
+    return { ok: true, schedule: createSchedule(scheduledTasks, totalDuration) }
+  }
+
+  const scheduleIgnoringWaitingLimit = placeFlexibleTasks(
+    flexibleTasks,
+    fixedSchedule,
+    boundary,
+    false
+  )
+  return scheduleIgnoringWaitingLimit === null
+    ? { ok: false, reasonCode: 'task_windows_do_not_align' }
+    : { ok: false, reasonCode: 'waiting_time_exceeds_twenty_minutes' }
+}
+
+function scheduleFixedTasks(
+  tasks: readonly Task[],
+  boundary: TimeWindow | undefined
+): ScheduledTask[] | null {
+  const scheduledTasks: ScheduledTask[] = []
+
+  for (const task of tasks.filter(isFixedTask).sort(compareTasks)) {
+    const startAt = Date.parse(task.timeWindow.startAt)
+    const endAt = startAt + task.estimatedDurationMinutes * MINUTE_MS
+    if (!isWithinBoundary(startAt, endAt, boundary)) return null
+    if (scheduledTasks.some((scheduled) => intervalsOverlap(scheduled, { startAt, endAt }))) {
+      return null
+    }
+    scheduledTasks.push({ task, startAt, endAt })
+  }
+
+  return scheduledTasks
+}
+
+function placeFlexibleTasks(
+  remainingTasks: readonly Task[],
+  scheduledTasks: readonly ScheduledTask[],
+  boundary: TimeWindow | undefined,
+  enforceWaitingLimit: boolean,
+  failedStates = new Set<string>()
+): ScheduledTask[] | null {
+  const sortedSchedule = [...scheduledTasks].sort(compareScheduledTasks)
+  if (remainingTasks.length === 0) {
+    const waitingMinutes = calculateFixedTaskWaitingMinutes(sortedSchedule)
+    return !enforceWaitingLimit || waitingMinutes <= MAX_BUNDLE_WAITING_MINUTES
+      ? sortedSchedule
+      : null
+  }
+
+  const stateKey = createSchedulingStateKey(remainingTasks, sortedSchedule)
+  if (failedStates.has(stateKey)) return null
+
+  const attemptedTaskSignatures = new Set<string>()
+  for (const task of [...remainingTasks].sort(compareFlexibleTasks)) {
+    const taskSignature = createTaskSchedulingSignature(task)
+    if (attemptedTaskSignatures.has(taskSignature)) continue
+    attemptedTaskSignatures.add(taskSignature)
+
+    const otherTasks = remainingTasks.filter(({ taskId }) => taskId !== task.taskId)
+    for (const startAt of findPlacementStarts(task, sortedSchedule, boundary)) {
+      const placedTask = {
+        task,
+        startAt,
+        endAt: startAt + task.estimatedDurationMinutes * MINUTE_MS
+      }
+      const result = placeFlexibleTasks(
+        otherTasks,
+        [...sortedSchedule, placedTask],
+        boundary,
+        enforceWaitingLimit,
+        failedStates
+      )
+      if (result !== null) return result
+    }
+  }
+
+  failedStates.add(stateKey)
+  return null
+}
+
+function findPlacementStarts(
+  task: Task,
+  scheduledTasks: readonly ScheduledTask[],
+  boundary: TimeWindow | undefined
+): number[] {
+  const durationMs = task.estimatedDurationMinutes * MINUTE_MS
+  const windowStartAt = Math.max(
+    Date.parse(task.timeWindow.startAt),
+    boundary === undefined ? Number.NEGATIVE_INFINITY : Date.parse(boundary.startAt)
+  )
+  const windowEndAt = Math.min(
+    Date.parse(task.timeWindow.endAt),
+    boundary === undefined ? Number.POSITIVE_INFINITY : Date.parse(boundary.endAt)
+  )
+  const starts: number[] = []
+  let cursor = windowStartAt
+
+  for (const occupied of scheduledTasks) {
+    if (occupied.endAt <= cursor) continue
+    if (occupied.startAt >= windowEndAt) break
+    if (cursor + durationMs <= Math.min(occupied.startAt, windowEndAt)) starts.push(cursor)
+    cursor = Math.max(cursor, occupied.endAt)
+  }
+
+  if (cursor + durationMs <= windowEndAt) starts.push(cursor)
+  return uniqueNumbers(starts)
+}
+
+function createSchedule(
+  scheduledTasks: readonly ScheduledTask[],
+  totalActivityDurationMinutes: number
+): Schedule {
+  const sortedTasks = [...scheduledTasks].sort(compareScheduledTasks)
+  const first = sortedTasks[0]
+  const last = sortedTasks.at(-1)
+  if (first === undefined || last === undefined) {
+    throw new Error('A schedule requires at least one task')
+  }
 
   return {
-    scheduledTasks,
+    scheduledTasks: sortedTasks,
     totalActivityDurationMinutes,
-    waitingMinutes,
+    waitingMinutes: calculateFixedTaskWaitingMinutes(sortedTasks),
     scheduledWindow: {
       startAt: new Date(first.startAt).toISOString(),
       endAt: new Date(last.endAt).toISOString()
     }
   }
-}
-
-function determineSplitReason(tasks: readonly Task[]): string {
-  const totalDuration = tasks.reduce((total, task) => total + task.estimatedDurationMinutes, 0)
-  if (totalDuration > MAX_BUNDLE_ACTIVITY_DURATION_MINUTES) {
-    return 'helper_duration_exceeds_thirty_minutes'
-  }
-
-  if (hasFixedTaskWaitOverLimit(tasks)) {
-    return 'waiting_time_exceeds_twenty_minutes'
-  }
-
-  return 'task_windows_do_not_align'
 }
 
 function selectCandidate(
@@ -311,9 +415,9 @@ function selectCandidate(
     ]
 
     return candidate.availabilityWindows.flatMap((availabilityWindow) => {
-      const schedule = scheduleTasks(tasks, Date.parse(availabilityWindow.startAt))
-      if (schedule === null || !containsWindow(availabilityWindow, schedule.scheduledWindow))
-        return []
+      const attempted = scheduleTasks(tasks, availabilityWindow)
+      if (!attempted.ok) return []
+      const { schedule } = attempted
       if (
         existingCommitments.some((commitment) =>
           windowsOverlap(commitment, schedule.scheduledWindow)
@@ -340,44 +444,49 @@ function selectCandidate(
 
 function calculateFixedTaskWaitingMinutes(scheduledTasks: readonly ScheduledTask[]): number {
   const fixedTasks = scheduledTasks.filter(({ task }) => task.timeCertainty === 'fixed')
-  let waitingMinutes = 0
+  let waitingMilliseconds = 0
 
   for (let index = 1; index < fixedTasks.length; index += 1) {
     const previous = fixedTasks[index - 1]
     const next = fixedTasks[index]
     if (previous === undefined || next === undefined) continue
 
-    const activeMinutesBetween = scheduledTasks.reduce((total, scheduled) => {
+    const activeMillisecondsBetween = scheduledTasks.reduce((total, scheduled) => {
       if (scheduled === previous || scheduled === next) return total
       const overlapStart = Math.max(previous.endAt, scheduled.startAt)
       const overlapEnd = Math.min(next.startAt, scheduled.endAt)
-      return total + Math.max(0, overlapEnd - overlapStart) / MINUTE_MS
+      return total + Math.max(0, overlapEnd - overlapStart)
     }, 0)
-    const elapsedMinutes = Math.max(0, next.startAt - previous.endAt) / MINUTE_MS
-    waitingMinutes += Math.max(0, elapsedMinutes - activeMinutesBetween)
+    const elapsedMilliseconds = Math.max(0, next.startAt - previous.endAt)
+    waitingMilliseconds += Math.max(0, elapsedMilliseconds - activeMillisecondsBetween)
   }
 
-  return Math.round(waitingMinutes)
+  return Math.ceil(waitingMilliseconds / MINUTE_MS)
 }
 
-function hasFixedTaskWaitOverLimit(tasks: readonly Task[]): boolean {
-  const fixedTasks = tasks.filter((task) => task.timeCertainty === 'fixed').sort(compareTasks)
-
-  return fixedTasks.some((task, index) => {
-    const previous = fixedTasks[index - 1]
-    if (previous === undefined) return false
-    const previousEndAt =
-      Date.parse(previous.timeWindow.startAt) + previous.estimatedDurationMinutes * MINUTE_MS
-    const waitingMinutes = (Date.parse(task.timeWindow.startAt) - previousEndAt) / MINUTE_MS
-    return waitingMinutes > MAX_BUNDLE_WAITING_MINUTES
-  })
+function canFitOwnWindow(task: Task): boolean {
+  const durationMs = task.estimatedDurationMinutes * MINUTE_MS
+  return Date.parse(task.timeWindow.startAt) + durationMs <= Date.parse(task.timeWindow.endAt)
 }
 
-function containsWindow(outer: TimeWindow, inner: TimeWindow): boolean {
-  return (
-    Date.parse(outer.startAt) <= Date.parse(inner.startAt) &&
-    Date.parse(outer.endAt) >= Date.parse(inner.endAt)
-  )
+function isFixedTask(task: Task): boolean {
+  return task.timeCertainty === 'fixed'
+}
+
+function isWithinBoundary(
+  startAt: number,
+  endAt: number,
+  boundary: TimeWindow | undefined
+): boolean {
+  if (boundary === undefined) return true
+  return Date.parse(boundary.startAt) <= startAt && Date.parse(boundary.endAt) >= endAt
+}
+
+function intervalsOverlap(
+  left: Readonly<{ startAt: number; endAt: number }>,
+  right: Readonly<{ startAt: number; endAt: number }>
+): boolean {
+  return left.startAt < right.endAt && right.startAt < left.endAt
 }
 
 function windowsOverlap(left: TimeWindow, right: TimeWindow): boolean {
@@ -392,6 +501,41 @@ function compareTasks(left: Task, right: Task): number {
     Date.parse(left.timeWindow.startAt) - Date.parse(right.timeWindow.startAt) ||
     left.taskId.localeCompare(right.taskId)
   )
+}
+
+function compareFlexibleTasks(left: Task, right: Task): number {
+  return (
+    Date.parse(left.timeWindow.endAt) - Date.parse(right.timeWindow.endAt) ||
+    Date.parse(left.timeWindow.startAt) - Date.parse(right.timeWindow.startAt) ||
+    left.taskId.localeCompare(right.taskId)
+  )
+}
+
+function compareScheduledTasks(left: ScheduledTask, right: ScheduledTask): number {
+  return left.startAt - right.startAt || left.task.taskId.localeCompare(right.task.taskId)
+}
+
+function createSchedulingStateKey(
+  remainingTasks: readonly Task[],
+  scheduledTasks: readonly ScheduledTask[]
+): string {
+  const remaining = [...remainingTasks]
+    .map((task) => task.taskId)
+    .sort()
+    .join(',')
+  const scheduled = scheduledTasks
+    .map(({ task, startAt, endAt }) => `${task.timeCertainty}:${startAt}:${endAt}`)
+    .join(',')
+  return `${remaining}|${scheduled}`
+}
+
+function createTaskSchedulingSignature(task: Task): string {
+  return [
+    task.timeWindow.startAt,
+    task.timeWindow.endAt,
+    task.estimatedDurationMinutes,
+    task.timeCertainty
+  ].join(':')
 }
 
 function getSharedContext(
@@ -419,6 +563,10 @@ function hasRejectedLlmDuration(task: Task): boolean {
 
 function unique(values: readonly string[]): string[] {
   return [...new Set(values)]
+}
+
+function uniqueNumbers(values: readonly number[]): number[] {
+  return [...new Set(values)].sort((left, right) => left - right)
 }
 
 function createBundleKey(taskIds: readonly string[]): string {

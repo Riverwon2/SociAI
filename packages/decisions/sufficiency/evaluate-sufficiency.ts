@@ -7,6 +7,8 @@ import type {
 } from '@30-minute-exchange/contracts'
 
 import { SUFFICIENCY_REASON_CODES } from './reason-codes.js'
+import { getRequiredMissingInformation } from './sufficiency-rules.js'
+import { isAvailableFactValid } from './validate-available-fact.js'
 
 export type SufficiencyEvaluation = Readonly<{
   status: SufficiencyStatus
@@ -20,8 +22,12 @@ export function evaluateSufficiency(
   task: Task,
   availableFacts: readonly AvailableFact[]
 ): SufficiencyEvaluation {
-  const availableCodes = new Set(availableFacts.map(({ code }) => code))
-  const unresolved = task.missingInformation.filter(({ code }) => !availableCodes.has(code))
+  const availableCodes = new Set(
+    availableFacts.filter(isAvailableFactValid).map(({ code }) => code)
+  )
+  const unresolved = getRequiredMissingInformation(task).filter(
+    ({ code }) => !availableCodes.has(code)
+  )
 
   if (unresolved.length === 0) {
     return {

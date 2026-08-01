@@ -1,6 +1,6 @@
 import type { CandidateProfile, Task } from '@30-minute-exchange/contracts'
 
-import { calculateAvailabilityScore } from './availability-score.js'
+import { calculateAvailabilityScore, subtractScheduledCommitments } from './availability-score.js'
 import { calculateDistanceKm } from './distance-score.js'
 
 export type CandidateEligibility = Readonly<{
@@ -11,7 +11,11 @@ export type CandidateEligibility = Readonly<{
 }>
 
 export function filterCandidate(task: Task, profile: CandidateProfile): CandidateEligibility {
-  const availabilityScore = calculateAvailabilityScore(task, profile.availabilityWindows)
+  const freeWindows = subtractScheduledCommitments(
+    profile.availabilityWindows,
+    profile.scheduledCommitments ?? []
+  )
+  const availabilityScore = calculateAvailabilityScore(task, freeWindows)
   const distanceKm = calculateDistanceKm(task.region, profile.activityRegion)
   const exclusionReasons: string[] = []
 

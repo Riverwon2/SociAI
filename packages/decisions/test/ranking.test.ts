@@ -76,4 +76,19 @@ describe('findCandidates', () => {
     ])
     expect(profiles).toEqual(snapshot)
   })
+
+  it('기존 일정이 task 시간을 모두 차지하는 후보를 제외한다', () => {
+    const [base] = candidateProfiles
+    if (base === undefined) throw new Error('Candidate fixture is required')
+    const busyProfile: CandidateProfile = {
+      ...base,
+      candidateId: 'candidate_busy',
+      scheduledCommitments: [task.timeWindow]
+    }
+
+    const result = findCandidates(candidatesCall([busyProfile]))
+
+    expect(result.ok && result.data.candidates).toEqual([])
+    expect(result.ok && result.data.excludedCount).toBe(1)
+  })
 })
