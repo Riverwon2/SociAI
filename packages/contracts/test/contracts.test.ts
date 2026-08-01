@@ -11,6 +11,8 @@ import {
   CheckSafetyResultSchema,
   CheckSufficiencyCallSchema,
   CheckSufficiencyResultSchema,
+  ClarificationInviteCallSchema,
+  ClarificationInviteResultSchema,
   ConfirmMatchResultSchema,
   DemoScenarioFixtureSchema,
   FinalResultSchema,
@@ -97,6 +99,25 @@ const candidate = {
 } as const
 
 describe('shared domain contracts', () => {
+  it('accepts the run creation response and binds both stream URLs to the run', () => {
+    const response = {
+      schemaVersion: 2,
+      runId: identifiers.runId,
+      requestId: identifiers.requestId,
+      status: 'accepted',
+      agentEventsUrl: `/api/runs/${identifiers.runId}/events`,
+      rawToolEventsUrl: `/api/runs/${identifiers.runId}/raw-events`
+    } as const
+
+    expect(RunAcceptedResponseSchema.parse(response)).toEqual(response)
+    expect(() =>
+      RunAcceptedResponseSchema.parse({
+        ...response,
+        rawToolEventsUrl: '/api/runs/another_run/raw-events'
+      })
+    ).toThrow()
+  })
+
   it('accepts a complete one-shot initial request', () => {
     expect(InitialRequestSchema.parse(initialRequest)).toEqual(initialRequest)
   })
@@ -472,6 +493,44 @@ describe('event contracts', () => {
     expect(AgentEventSchema.parse(event)).toEqual(event)
   })
 
+  it('validates task-scoped clarification invitation and response events', () => {
+    const invited = {
+      schemaVersion: 2,
+      eventId: 'event_clarification_invited_001',
+      ...identifiers,
+      sequence: 6,
+      occurredAt: '2026-08-01T09:00:30.000Z',
+      type: 'clarification.invited',
+      message: '정보 확인 대화 의향을 물었습니다.',
+      isSimulation: true,
+      data: {
+        toolCallId: 'tool_call_clarification_001',
+        candidateId: candidate.candidateId
+      }
+    } as const
+    const responded = {
+      schemaVersion: 2,
+      eventId: 'event_clarification_responded_001',
+      ...identifiers,
+      sequence: 7,
+      occurredAt: '2026-08-01T09:00:31.000Z',
+      type: 'clarification.responded',
+      message: '가상 이웃 하나: 정보 확인 대화에 동의했습니다.',
+      isSimulation: true,
+      data: {
+        candidateId: candidate.candidateId,
+        outcome: 'conversation_agreed',
+        taskStatus: 'held',
+        requesterMessage: '가상 이웃 하나: 정보 확인 대화에 동의했습니다.',
+        isSimulation: true
+      }
+    } as const
+
+    expect(AgentEventSchema.parse(invited)).toEqual(invited)
+    expect(AgentEventSchema.parse(responded)).toEqual(responded)
+    expect(() => AgentEventSchema.parse({ ...responded, taskId: undefined })).toThrow()
+  })
+
   it('lets consumers ignore an unknown normalized event without crashing', () => {
     const unknownEvent = {
       schemaVersion: 2,
@@ -632,6 +691,57 @@ describe('tool boundaries', () => {
 
     expect(CheckSufficiencyCallSchema.parse(call)).toEqual(call)
     expect(CheckSufficiencyResultSchema.parse(result)).toEqual(result)
+  })
+
+  it('validates a held-task clarification invitation result without creating a match', () => {
+    const heldTask = {
+      ...task,
+      status: 'held',
+      missingInformation: [{ code: 'item_weight', message: '물품 무게 정보가 필요합니다.' }]
+    } as const
+    const call = {
+      schemaVersion: 2,
+      ...identifiers,
+      toolCallId: 'tool_call_clarification_001',
+      task: heldTask,
+      candidate,
+      seed: 'clarification-demo-v1'
+    } as const
+    const result = {
+      schemaVersion: 2,
+      ...identifiers,
+      toolCallId: call.toolCallId,
+      candidateId: candidate.candidateId,
+      ok: true,
+      data: {
+        candidateId: candidate.candidateId,
+        outcome: 'conversation_agreed',
+        taskStatus: 'held',
+        requesterMessage: '가상 이웃 하나: 정보 확인 대화에 동의했습니다.',
+        isSimulation: true
+      }
+    } as const
+
+    expect(ClarificationInviteCallSchema.parse(call)).toEqual(call)
+    expect(ClarificationInviteResultSchema.parse(result)).toEqual(result)
+    expect(() =>
+      ClarificationInviteCallSchema.parse({
+        ...call,
+        task: { ...call.task, status: 'ready' }
+      })
+    ).toThrow()
+    expect(() =>
+      ClarificationInviteResultSchema.parse({
+        ...result,
+        data: { ...result.data, candidateId: 'another_candidate' }
+      })
+    ).toThrow()
+    expect(() =>
+      ClarificationInviteResultSchema.parse({
+        ...result,
+        data: { ...result.data, taskStatus: 'matched' }
+      })
+    ).toThrow()
   })
 
   it('treats an empty candidate pool as a valid business result input', () => {

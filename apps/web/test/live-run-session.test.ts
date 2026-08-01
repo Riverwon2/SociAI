@@ -151,4 +151,3 @@ function liveIdentity(requestId: string) {
     rawToolEventsUrl: '/api/runs/run_live/raw-events'
   }
 }
-

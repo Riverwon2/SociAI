@@ -21,6 +21,7 @@ import {
 } from './shared.js'
 import { SufficiencyDecisionSchema } from './sufficiency-decision.js'
 import { TaskSchema } from './task.js'
+import { ClarificationInviteDataSchema } from './tool-contracts.js'
 
 export const AgentEventTypeSchema = z.enum([
   'request.created',
@@ -29,6 +30,8 @@ export const AgentEventTypeSchema = z.enum([
   'safety.checked',
   'sufficiency.checked',
   'task.held',
+  'clarification.invited',
+  'clarification.responded',
   'bundles.planned',
   'assignments.planned',
   'candidates.ranked',
@@ -169,6 +172,21 @@ const TaskHeldEventSchema = createEventSchema(
     .strict(),
   true
 )
+const ClarificationInvitedEventSchema = createEventSchema(
+  'clarification.invited',
+  z
+    .object({
+      toolCallId: ToolCallIdSchema,
+      candidateId: CandidateIdSchema
+    })
+    .strict(),
+  true
+)
+const ClarificationRespondedEventSchema = createEventSchema(
+  'clarification.responded',
+  ClarificationInviteDataSchema,
+  true
+)
 const BundlesPlannedEventSchema = createEventSchema(
   'bundles.planned',
   z
@@ -282,9 +300,17 @@ const OutreachTimedOutEventSchema = createEventSchema(
       assignmentId: AssignmentIdSchema.optional(),
       candidateId: CandidateIdSchema,
       attempt: z.number().int().min(1).max(3),
-      waitedSeconds: z.literal(10)
+      // A replay reports the virtual ten minutes; a live run reports the ten
+      // seconds it actually waited. Exactly one of the two is present.
+      waitedMinutes: z.literal(10).optional(),
+      waitedSeconds: z.literal(10).optional()
     })
-    .strict(),
+    .strict()
+    .refine(
+      ({ waitedMinutes, waitedSeconds }) =>
+        (waitedMinutes === undefined) !== (waitedSeconds === undefined),
+      { message: 'Exactly one of waitedMinutes or waitedSeconds must be present' }
+    ),
   true
 )
 const PlanUpdatedEventSchema = createEventSchema('plan.updated', PlanUpdatedDataSchema, true)
@@ -348,6 +374,8 @@ export const AgentEventSchema = z.discriminatedUnion('type', [
   SafetyCheckedEventSchema,
   SufficiencyCheckedEventSchema,
   TaskHeldEventSchema,
+  ClarificationInvitedEventSchema,
+  ClarificationRespondedEventSchema,
   BundlesPlannedEventSchema,
   AssignmentsPlannedEventSchema,
   CandidatesRankedEventSchema,

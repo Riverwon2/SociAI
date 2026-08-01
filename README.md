@@ -21,8 +21,22 @@ pnpm typecheck
 pnpm test
 pnpm test:coverage
 pnpm build
+pnpm test:e2e
 pnpm verify
 ```
+
+## 프론트엔드 데모
+
+```bash
+pnpm --filter @30-minute-exchange/web dev
+```
+
+- 주 화면은 `/`에서 one-shot 요청, 작업 상태, 후보 점수, 계획 갱신과 최종 결과를 표시합니다.
+- raw 전용 두 번째 화면은 `/raw`이며 주 화면의 **Raw 이벤트 화면** 버튼으로 엽니다.
+- 서버가 연결되기 전 fixture replay에서는 가짜 OpenAI raw payload를 만들지 않습니다.
+- 브라우저 live adapter는 `POST /api/runs`와 응답에 포함된 두 SSE URL을 사용하며 정규화 이벤트와 raw 이벤트를 별도로 소비합니다. 서버 route가 아직 없으면 시작 오류를 안전하게 표시합니다.
+
+현재 3번 영역의 상세 사용법은 [웹 README](apps/web/README.md), 실시간 이벤트 소비 규칙은 [event-stream README](packages/event-stream/README.md), 발표 순서는 [라이브 데모 런북](docs/demo/live-demo-runbook.md)을 참고합니다.
 
 라이브 OpenAI 경로를 구현할 때 루트 `.env`에 `OPENAI_API_KEY`와 필요한 모델 설정을 입력합니다. `.env`는 커밋하지 않습니다.
 

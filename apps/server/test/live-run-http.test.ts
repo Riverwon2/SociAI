@@ -54,11 +54,14 @@ describe('createLiveRunHttpServer', () => {
     if (address === null || typeof address === 'string') throw new Error('Expected a TCP address')
 
     try {
-      const response = await fetch(`http://127.0.0.1:${address.port}/api/tools/build-task-bundles`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(bundleCall)
-      })
+      const response = await fetch(
+        `http://127.0.0.1:${address.port}/api/tools/build-task-bundles`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(bundleCall)
+        }
+      )
 
       expect(response.status).toBe(200)
       await expect(response.json()).resolves.toMatchObject({
@@ -84,11 +87,14 @@ describe('createLiveRunHttpServer', () => {
     if (address === null || typeof address === 'string') throw new Error('Expected a TCP address')
 
     try {
-      const response = await fetch(`http://127.0.0.1:${address.port}/api/tools/build-task-bundles`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...bundleCall, tasks: [] })
-      })
+      const response = await fetch(
+        `http://127.0.0.1:${address.port}/api/tools/build-task-bundles`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ ...bundleCall, tasks: [] })
+        }
+      )
 
       expect(response.status).toBe(422)
       await expect(response.json()).resolves.toEqual({ error: 'input_invalid' })

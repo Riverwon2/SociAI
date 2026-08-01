@@ -230,7 +230,7 @@ describe('runBundleWorkflow', () => {
     expect(result.finalResult.status).toBe('fully_matched')
   })
 
-  it('marks a bundle unmatched after the initial candidate and one retry both reject', async () => {
+  it('marks a bundle unmatched after the initial candidate and two retries all reject', async () => {
     const decomposed = await decomposeFixedRequest({
       planner,
       initialRequest: fixedInitialRequest,
@@ -266,7 +266,11 @@ describe('runBundleWorkflow', () => {
       tools
     })
 
-    expect(result.assignmentResults.map(({ status }) => status)).toEqual(['rejected', 'rejected'])
+    expect(result.assignmentResults.map(({ status }) => status)).toEqual([
+      'rejected',
+      'rejected',
+      'rejected'
+    ])
     expect(result.finalResult.status).toBe('unmatched')
     expect(result.finalResult.taskResults).toMatchObject([
       { status: 'unmatched', reasonCodes: ['candidate_attempt_limit_reached'] }

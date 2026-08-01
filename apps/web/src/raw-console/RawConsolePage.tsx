@@ -124,4 +124,3 @@ function RawEmptyState({ mode }: { readonly mode: 'live' | 'replay' }) {
     </section>
   )
 }
-

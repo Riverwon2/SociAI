@@ -32,3 +32,9 @@ jobs:
 
       - name: Verify repository
         run: pnpm verify
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run browser scenarios
+        run: pnpm test:e2e

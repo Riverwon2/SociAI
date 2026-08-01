@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RawToolEvent } from '@30-minute-exchange/contracts'
 import {
@@ -19,7 +19,7 @@ import { EventTimeline } from '../src/timeline/EventTimeline.js'
 describe('role 3 demo UI', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-08-01T00:00:00.000Z'))
+    vi.setSystemTime(new Date('2026-08-01T12:00:00+09:00'))
     window.history.replaceState({}, '', '/')
     window.sessionStorage.clear()
   })
@@ -66,6 +66,17 @@ describe('role 3 demo UI', () => {
     expect(screen.getByRole('heading', { name: '도움을 완료했어요' })).toBeInTheDocument()
   })
 
+  it('replays a fixed-date fixture after its calendar date has passed', () => {
+    vi.setSystemTime(new Date('2026-08-02T12:00:00+09:00'))
+    render(<App replayIntervalMs={1} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
+
+    expect(
+      screen.queryByRole('heading', { name: '오늘 어떤 도움이 필요하세요?' })
+    ).not.toBeInTheDocument()
+  })
+
   it('delivers the requester thank-you note to the helper after the mission completes', async () => {
     render(<App replayIntervalMs={1} />)
     fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
@@ -94,6 +105,94 @@ describe('role 3 demo UI', () => {
     expect(screen.getAllByText('덕분에 큰 도움이 됐어요.')).toHaveLength(2)
     expect(screen.queryByRole('button', { name: '메시지 보내기' })).toBeNull()
     expect(screen.queryByText('요청 내용')).toBeNull()
+  })
+
+  it('lets three helpers answer in any order from their own connection screens', async () => {
+    render(<App replayIntervalMs={1} />)
+    fireEvent.click(screen.getByRole('button', { name: /같은 시각에 겹친 세 가지/ }))
+    fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
+    await advanceReplayUntilPause()
+
+    expect(screen.getByText('도우미 3명과 따로 연결됐어요')).toBeInTheDocument()
+    expect(screen.getAllByText('응답 필요')).toHaveLength(3)
+    expect(screen.getAllByRole('button', { name: '수락' })).toHaveLength(3)
+    expect(screen.queryByLabelText('도움 신청 진행 단계')).toBeNull()
+
+    for (const position of [3, 1, 2]) {
+      fireEvent.click(helperScreen(position).getByRole('button', { name: '수락' }))
+      await advanceReplayUntilPause()
+    }
+
+    expect(screen.getByRole('heading', { name: '모든 도움이 연결됐어요' })).toBeInTheDocument()
+    const requester = within(screen.getByRole('article', { name: '모든 도움이 연결됐어요' }))
+    expect(requester.getAllByText('수락됨')).toHaveLength(3)
+    expect(requester.getByText('가상 이웃 하나')).toBeInTheDocument()
+    expect(requester.getByText('가상 이웃 두리')).toBeInTheDocument()
+    expect(requester.getByText('가상 이웃 세아')).toBeInTheDocument()
+    expect(requester.queryByText(/도움을 수락했어요\./)).toBeNull()
+  })
+
+  it('keeps every helper screen while one of them is thanked', async () => {
+    render(<App replayIntervalMs={1} />)
+    fireEvent.click(screen.getByRole('button', { name: /같은 시각에 겹친 세 가지/ }))
+    fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
+    await advanceReplayUntilPause()
+
+    for (const position of [1, 2, 3]) {
+      fireEvent.click(helperScreen(position).getByRole('button', { name: '수락' }))
+      await advanceReplayUntilPause()
+    }
+
+    fireEvent.click(helperScreen(2).getByRole('button', { name: '미션 완료' }))
+    expect(screen.queryByText('도움이 완료되었습니다!')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /도우미 2/ }))
+    expect(screen.getByText('도움이 완료되었습니다!')).toBeInTheDocument()
+    expect(screen.getByText('받는 사람 · 가상 이웃 두리 · 택배 수령')).toBeInTheDocument()
+    expect(screen.getAllByText(/도움 수락자 \d 화면/)).toHaveLength(3)
+
+    fireEvent.change(screen.getByPlaceholderText(/따뜻한 한마디/), {
+      target: { value: '택배 고맙습니다.' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: '메시지 보내기' }))
+
+    expect(screen.getAllByText(/도움 수락자 \d 화면/)).toHaveLength(3)
+    expect(helperScreen(2).getByText('택배 고맙습니다.')).toBeInTheDocument()
+    expect(helperScreen(1).queryByText('택배 고맙습니다.')).toBeNull()
+    expect(helperScreen(3).queryByText('택배 고맙습니다.')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /도우미 목록으로/ }))
+    expect(screen.queryByText('감사의 마음을 전했어요')).toBeNull()
+  })
+
+  it('keeps helper numbering stable when a connection is selected', async () => {
+    render(<App replayIntervalMs={1} />)
+    fireEvent.click(screen.getByRole('button', { name: /같은 시각에 겹친 세 가지/ }))
+    fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
+    await advanceReplayUntilPause()
+
+    fireEvent.click(screen.getByRole('button', { name: /도우미 3/ }))
+    expect(helperScreen(3).getByText('가상 이웃 세아님의 화면')).toBeInTheDocument()
+    expect(helperScreen(1).getByText('가상 이웃 하나님의 화면')).toBeInTheDocument()
+    expect(screen.getAllByText(/도움 수락자 \d 화면/)).toHaveLength(3)
+  })
+
+  it('holds the completion until the last helper has answered', async () => {
+    render(<App replayIntervalMs={1} />)
+    fireEvent.click(screen.getByRole('button', { name: /같은 시각에 겹친 세 가지/ }))
+    fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
+    await advanceReplayUntilPause()
+
+    fireEvent.click(screen.getByRole('button', { name: /도우미 1/ }))
+    expect(screen.getByRole('button', { name: /도우미 목록으로/ })).toBeInTheDocument()
+    expect(screen.getAllByText(/도움 수락자 \d 화면/)).toHaveLength(3)
+    fireEvent.click(helperScreen(1).getByRole('button', { name: '수락' }))
+    await advanceReplayUntilPause()
+    fireEvent.click(screen.getByRole('button', { name: /도우미 목록으로/ }))
+
+    expect(screen.queryByRole('heading', { name: '모든 도움이 연결됐어요' })).toBeNull()
+    expect(screen.getByText('수락됨')).toBeInTheDocument()
+    expect(screen.getAllByText('응답 필요')).toHaveLength(2)
   })
 
   it('requires reject, timeout, and accept interactions before the third candidate succeeds', async () => {
@@ -400,4 +499,10 @@ function liveIdentity(runId: string, requestId: string) {
     agentEventsUrl: `/api/runs/${runId}/events`,
     rawToolEventsUrl: `/api/runs/${runId}/raw-events`
   }
+}
+
+function helperScreen(position: number) {
+  const article = screen.getByText(`도움 수락자 ${position} 화면`).closest('article')
+  if (article === null) throw new Error(`Helper screen ${position} is not rendered`)
+  return within(article)
 }

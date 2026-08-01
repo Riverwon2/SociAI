@@ -12,7 +12,7 @@ describe('one-shot request form boundary', () => {
 
   it('creates a contract-valid free same-day request', () => {
     const result = parseRequestForm(
-      fieldsFromFixture(fixture),
+      fieldsFromFixture(fixture, '2026-08-01'),
       fixture.initialRequest.requestId,
       '2026-08-01'
     )
@@ -24,7 +24,7 @@ describe('one-shot request form boundary', () => {
   })
 
   it('rejects a duration longer than 30 minutes before submission', () => {
-    const fields = { ...fieldsFromFixture(fixture), maxDuration: '31' }
+    const fields = { ...fieldsFromFixture(fixture, '2026-08-01'), maxDuration: '31' }
     const result = parseRequestForm(fields, fixture.initialRequest.requestId, '2026-08-01')
 
     expect(result).toEqual({
@@ -35,7 +35,7 @@ describe('one-shot request form boundary', () => {
 
   it('rejects a request outside today and accepts optional notes and flexibility', () => {
     const fields = {
-      ...fieldsFromFixture(fixture),
+      ...fieldsFromFixture(fixture, '2026-08-01'),
       allowTimeAdjustment: true,
       optionalNotes: '실내 출입은 필요하지 않습니다.'
     }
@@ -49,6 +49,17 @@ describe('one-shot request form boundary', () => {
     expect(valid.request.optionalNotes).toBe('실내 출입은 필요하지 않습니다.')
   })
 
+  it('moves a fixture onto the current day so the demo works on any date', () => {
+    const fields = fieldsFromFixture(fixture, '2027-03-09')
+
+    expect(fields.startAt.slice(0, 10)).toBe('2027-03-09')
+    expect(fields.endAt.slice(0, 10)).toBe('2027-03-09')
+    expect(fields.startAt.slice(11)).toBe('17:00')
+    expect(parseRequestForm(fields, fixture.initialRequest.requestId, '2027-03-09').success).toBe(
+      true
+    )
+  })
+
   it('formats the current date explicitly in the Seoul timezone', () => {
     expect(getSeoulDate(new Date('2026-07-31T15:30:00.000Z'))).toBe('2026-08-01')
   })
@@ -59,7 +70,7 @@ describe('one-shot request form boundary', () => {
     [{ endAt: '2026-08-01T16:00' }, '희망 시간은 오늘 안에서 시작보다 종료가 늦어야 합니다.']
   ] as const)('maps invalid boundary fields to clear guidance', (change, message) => {
     const result = parseRequestForm(
-      { ...fieldsFromFixture(fixture), ...change },
+      { ...fieldsFromFixture(fixture, '2026-08-01'), ...change },
       fixture.initialRequest.requestId,
       '2026-08-01'
     )
@@ -69,4 +80,3 @@ describe('one-shot request form boundary', () => {
     expect(result.errors).toContain(message)
   })
 })
-

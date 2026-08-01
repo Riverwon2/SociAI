@@ -4,6 +4,7 @@ import type { DemoScenarioFixture, InitialRequest } from '@30-minute-exchange/co
 import { demoScenarios } from '../demo/scenarios.js'
 import {
   fieldsFromFixture,
+  getSeoulDate,
   parseRequestForm,
   type RequestFormFields
 } from './request-form-model.js'
@@ -43,7 +44,11 @@ export function RequestPanel({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const parsed = parseRequestForm(fields, scenario.fixture.initialRequest.requestId)
+    const replayDate =
+      executionMode === 'replay'
+        ? getSeoulDate(new Date(scenario.fixture.initialRequest.timeWindow.startAt))
+        : undefined
+    const parsed = parseRequestForm(fields, scenario.fixture.initialRequest.requestId, replayDate)
     if (!parsed.success) {
       setErrors(parsed.errors)
       return
@@ -208,4 +213,3 @@ export function RequestPanel({
     </section>
   )
 }
-

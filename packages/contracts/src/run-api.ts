@@ -8,26 +8,26 @@ export const RunAcceptedResponseSchema = z
     runId: RunIdSchema,
     requestId: RequestIdSchema,
     status: z.literal('accepted'),
-    agentEventsUrl: z.string().trim().min(1).max(2_048),
-    rawToolEventsUrl: z.string().trim().min(1).max(2_048)
+    agentEventsUrl: z.string().trim().min(1).max(2048),
+    rawToolEventsUrl: z.string().trim().min(1).max(2048)
   })
   .strict()
   .superRefine(({ runId, agentEventsUrl, rawToolEventsUrl }, context) => {
     const encodedRunId = encodeURIComponent(runId)
-    const expectedAgentEventsUrl = `/api/runs/${encodedRunId}/events`
-    const expectedRawToolEventsUrl = `/api/runs/${encodedRunId}/raw-events`
+    const expectedAgentUrl = `/api/runs/${encodedRunId}/events`
+    const expectedRawUrl = `/api/runs/${encodedRunId}/raw-events`
 
-    if (agentEventsUrl !== expectedAgentEventsUrl) {
+    if (agentEventsUrl !== expectedAgentUrl) {
       context.addIssue({
         code: 'custom',
-        message: `agentEventsUrl must be ${expectedAgentEventsUrl}`,
+        message: `agentEventsUrl must be ${expectedAgentUrl}`,
         path: ['agentEventsUrl']
       })
     }
-    if (rawToolEventsUrl !== expectedRawToolEventsUrl) {
+    if (rawToolEventsUrl !== expectedRawUrl) {
       context.addIssue({
         code: 'custom',
-        message: `rawToolEventsUrl must be ${expectedRawToolEventsUrl}`,
+        message: `rawToolEventsUrl must be ${expectedRawUrl}`,
         path: ['rawToolEventsUrl']
       })
     }

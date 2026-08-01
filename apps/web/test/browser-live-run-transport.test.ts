@@ -126,4 +126,3 @@ function sink(): LiveStreamSink {
     onMalformedMessage: vi.fn()
   }
 }
-

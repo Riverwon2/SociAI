@@ -21,12 +21,17 @@ export type RequestFormParseResult =
   | { readonly success: true; readonly request: InitialRequest }
   | { readonly success: false; readonly errors: readonly string[] }
 
-export function fieldsFromFixture(fixture: DemoScenarioFixture): RequestFormFields {
+export function fieldsFromFixture(
+  fixture: DemoScenarioFixture,
+  today = getSeoulDate()
+): RequestFormFields {
   const { initialRequest } = fixture
   return {
     helpDescription: initialRequest.helpDescription,
-    startAt: toSeoulDateTimeInput(initialRequest.timeWindow.startAt),
-    endAt: toSeoulDateTimeInput(initialRequest.timeWindow.endAt),
+    // A request must be scheduled for the current local day, so a fixture keeps
+    // its time of day and moves onto today.
+    startAt: onLocalDate(toSeoulDateTimeInput(initialRequest.timeWindow.startAt), today),
+    endAt: onLocalDate(toSeoulDateTimeInput(initialRequest.timeWindow.endAt), today),
     regionLabel: initialRequest.activityRegion.label,
     approximateLocation: initialRequest.activityRegion.approximateLocation,
     maxDuration: String(initialRequest.maxActivityDurationMinutes),
@@ -84,6 +89,10 @@ export function getSeoulDate(now = new Date()): string {
   }).format(now)
 }
 
+function onLocalDate(dateTimeInput: string, localDate: string): string {
+  return `${localDate}T${dateTimeInput.slice(11)}`
+}
+
 function toSeoulDateTimeInput(value: string): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul',
@@ -115,4 +124,3 @@ function toKoreanValidationMessage(issue: { readonly path: readonly PropertyKey[
     }[field] ?? '입력값을 다시 확인해 주세요.'
   )
 }
-

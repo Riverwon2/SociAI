@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import type { FallbackPolicy } from '@30-minute-exchange/contracts'
 
-import { findCandidates } from '../src/ranking/find-candidates.js'
-import { chooseFallbackAction, selectNextCandidate } from '../src/policies/fallback-policy.js'
+import { findCandidates } from '../ranking/find-candidates.js'
+import { chooseFallbackAction, selectNextCandidate } from '../policies/fallback-policy.js'
 import { candidatesCall } from './fixtures.js'
 
 const noFallback: FallbackPolicy = {

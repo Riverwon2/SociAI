@@ -92,4 +92,3 @@ function Boundary({ label, value }: { readonly label: string; readonly value: st
     </div>
   )
 }
-

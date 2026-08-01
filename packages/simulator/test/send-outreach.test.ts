@@ -2,14 +2,27 @@ import { describe, expect, it } from 'vitest'
 
 import { SendOutreachResultSchema } from '@30-minute-exchange/contracts'
 
-import { sendOutreach } from '../src/send-outreach.js'
+import { sendOutreach, sendOutreachAt } from '../src/send-outreach.js'
 import { determineResponse } from '../src/scenario-policy.js'
 import { deterministicInteger } from '../src/seeded-random.js'
 import { outreachCall } from './fixtures.js'
 
 describe('deterministic outreach simulator', () => {
   it('대표 재시도 시나리오를 거절, timeout, 수락 순서로 재현한다', () => {
-    const results = [1, 2].map((attempt) => sendOutreach(outreachCall(attempt as 1 | 2)))
+    const results = [1, 2, 3].map((attempt) => sendOutreach(outreachCall(attempt as 1 | 2 | 3)))
+
+    expect(results.map((result) => result.ok && result.data.outcome)).toEqual([
+      'rejected',
+      'timed_out',
+      'accepted'
+    ])
+  })
+
+  it('후보 ID 픽스처는 섭외 순번과 무관하게 같은 결과를 만든다', () => {
+    const results = [
+      sendOutreach(outreachCall(2, 'retry-path-v1', 'candidate-alpha')),
+      sendOutreach(outreachCall(1, 'retry-path-v1', 'candidate-beta'))
+    ]
 
     expect(results.map((result) => result.ok && result.data.outcome)).toEqual([
       'rejected',
@@ -18,7 +31,7 @@ describe('deterministic outreach simulator', () => {
   })
 
   it('uses the documented legacy ten-minute timeout when that fixture outcome is selected', () => {
-    const result = sendOutreach(outreachCall(1, 'timeout-retry-path-v1'))
+    const result = sendOutreach(outreachCall(1, 'timeout-retry-path-v1', 'candidate-alpha'))
 
     expect(result).toMatchObject({
       ok: true,
@@ -40,6 +53,13 @@ describe('deterministic outreach simulator', () => {
     const first = sendOutreach(outreachCall(1, 'custom-seed'))
     const second = sendOutreach(outreachCall(1, 'custom-seed'))
     expect(second).toEqual(first)
+  })
+
+  it('재시도는 오케스트레이터의 누적 가상 시각을 기준으로 응답한다', () => {
+    const result = sendOutreachAt(outreachCall(3, 'retry-path-v1'), '2026-08-01T10:16:00.000Z')
+
+    expect(result.ok && result.data.outcome).toBe('accepted')
+    expect(result.ok && result.data.respondedAt).toBe('2026-08-01T10:25:00.000Z')
   })
 
   it('알 수 없는 시나리오도 유효한 결정론적 응답을 만든다', () => {

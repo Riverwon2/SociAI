@@ -4,5 +4,14 @@
     "noEmit": true,
     "types": ["vitest/globals"]
   },
-  "include": ["src", "test", "vitest.config.ts"]
+  "include": [
+    "index.ts",
+    "bundling",
+    "policies",
+    "ranking",
+    "safety",
+    "sufficiency",
+    "test",
+    "vitest.config.ts"
+  ]
 }

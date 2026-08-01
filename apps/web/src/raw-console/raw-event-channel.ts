@@ -100,4 +100,3 @@ function parseMessage(value: unknown): RawChannelMessage | null {
 function defaultChannelFactory(name: string): BroadcastChannelLike {
   return new BroadcastChannel(name)
 }
-

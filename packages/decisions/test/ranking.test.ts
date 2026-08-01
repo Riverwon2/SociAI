@@ -7,11 +7,11 @@ import {
   type FindCandidatesForBundleCall
 } from '@30-minute-exchange/contracts'
 
-import { calculateAvailabilityScore } from '../src/ranking/availability-score.js'
-import { calculateDistanceScore } from '../src/ranking/distance-score.js'
-import { calculateExperienceScore } from '../src/ranking/experience-score.js'
-import { findCandidates } from '../src/ranking/find-candidates.js'
-import { findCandidatesForBundle } from '../src/ranking/find-candidates-for-bundle.js'
+import { calculateAvailabilityScore } from '../ranking/availability-score.js'
+import { calculateDistanceScore } from '../ranking/distance-score.js'
+import { calculateExperienceScore } from '../ranking/experience-score.js'
+import { findCandidates } from '../ranking/find-candidates.js'
+import { findCandidatesForBundle } from '../ranking/find-candidates-for-bundle.js'
 import { candidatesCall, candidateProfiles, identifiers, task } from './fixtures.js'
 
 describe('candidate scoring', () => {
@@ -81,6 +81,21 @@ describe('findCandidates', () => {
       'candidate_zeta'
     ])
     expect(profiles).toEqual(snapshot)
+  })
+
+  it('기존 일정이 task 시간을 모두 차지하는 후보를 제외한다', () => {
+    const [base] = candidateProfiles
+    if (base === undefined) throw new Error('Candidate fixture is required')
+    const busyProfile: CandidateProfile = {
+      ...base,
+      candidateId: 'candidate_busy',
+      scheduledCommitments: [task.timeWindow]
+    }
+
+    const result = findCandidates(candidatesCall([busyProfile]))
+
+    expect(result.ok && result.data.candidates).toEqual([])
+    expect(result.ok && result.data.excludedCount).toBe(1)
   })
 })
 

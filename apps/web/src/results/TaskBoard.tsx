@@ -208,4 +208,3 @@ function attemptLabel(outcome: TaskRunView['attempts'][number]['outcome']) {
     timed_out: '가상 10분 무응답'
   }[outcome]
 }
-

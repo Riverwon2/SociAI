@@ -4,9 +4,14 @@ import happyPath from '../examples/first-candidate-accepts.json' with { type: 'j
 import mixedRisk from '../examples/mixed-risk-partial-match.json' with { type: 'json' }
 import multiHelperSplit from '../examples/multi-helper-split.json' with { type: 'json' }
 import retryPath from '../examples/reject-timeout-accept.json' with { type: 'json' }
-import { DemoScenarioFixtureSchema } from '../src/index.js'
+import runAccepted from '../examples/run-accepted.json' with { type: 'json' }
+import { DemoScenarioFixtureSchema, RunAcceptedResponseSchema } from '../src/index.js'
 
 describe('shared scenario JSON fixtures', () => {
+  it('keeps the documented 202 Accepted response contract-valid', () => {
+    expect(RunAcceptedResponseSchema.parse(runAccepted)).toEqual(runAccepted)
+  })
+
   it.each([
     ['first candidate accepts', happyPath, 'first_candidate_accepts'],
     ['reject, timeout, then accept', retryPath, 'reject_timeout_accept'],

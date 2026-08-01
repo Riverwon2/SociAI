@@ -136,4 +136,3 @@ function streamUrls(runId: string) {
     rawToolEventsUrl: `/api/runs/${runId}/raw-events`
   }
 }
-

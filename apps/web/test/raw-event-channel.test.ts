@@ -103,4 +103,3 @@ function rawEvent(
     raw: { exact: '<script>text only</script>', sequence }
   }
 }
-

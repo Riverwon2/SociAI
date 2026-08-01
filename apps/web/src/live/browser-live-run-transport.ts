@@ -121,4 +121,3 @@ function defaultEventSourceFactory(url: string): EventSourceLike {
     close: () => source.close()
   }
 }
-

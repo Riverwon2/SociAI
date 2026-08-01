@@ -81,4 +81,3 @@ describe('contract-valid fixture event streams', () => {
     )
   })
 })
-

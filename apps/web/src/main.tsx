@@ -14,4 +14,3 @@ createRoot(root).render(
     <App liveTransport={liveTransport} />
   </StrictMode>
 )
-

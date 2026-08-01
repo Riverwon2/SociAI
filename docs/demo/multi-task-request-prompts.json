@@ -1,0 +1,90 @@
+{
+  "prompts": [
+    {
+      "prompt": "자취하는 대학생인데 발목 인대가 끊어져 깁스를 했어요. 6주짜리라 활동지원 대상이 안 되고, 목발을 짚으면 손에 아무것도 들 수가 없어요. 저녁 7시에 분리수거장 마감, 처방약 배송 도착, 세탁소 마감이 한꺼번에 겹칩니다.",
+      "tasks": [
+        {
+          "title": "쓰레기 배출",
+          "at": "19:00",
+          "place": "분리수거장",
+          "estimatedDurationMinutes": 10
+        },
+        {
+          "title": "처방약 배송 수령",
+          "at": "19:00",
+          "place": "현관 앞",
+          "estimatedDurationMinutes": 8
+        },
+        {
+          "title": "세탁물 수령",
+          "at": "19:00",
+          "place": "상가 세탁소",
+          "estimatedDurationMinutes": 12
+        }
+      ]
+    },
+    {
+      "prompt": "제왕절개 열흘째라 아기를 안고 계단을 못 내려가요. 남편은 해외 출장이고 산후도우미 지원은 다음 달에나 배정된대요. 오후 3시에 신생아 예방접종, 조리원 짐 보관 마감, 기저귀 배송이 전부 겹칩니다.",
+      "tasks": [
+        {
+          "title": "소아과 동행",
+          "at": "15:00",
+          "place": "동네 소아과",
+          "estimatedDurationMinutes": 25
+        },
+        {
+          "title": "조리원 짐 수령",
+          "at": "15:00",
+          "place": "산후조리원",
+          "estimatedDurationMinutes": 20
+        },
+        {
+          "title": "기저귀 배송 수령",
+          "at": "15:00",
+          "place": "현관 앞",
+          "estimatedDurationMinutes": 8
+        }
+      ]
+    },
+    {
+      "prompt": "어머니가 입원하시면서 치매 초기인 아버지가 집에 혼자 남으셨어요. 요양보호사 배정까지 2주가 걸리는데 저는 오늘 야근이에요. 저녁 6시에 아버지 저녁·복약, 어머니 면회 마감, 관리실 마감이 겹칩니다.",
+      "tasks": [
+        {
+          "title": "저녁 식사·복약 확인",
+          "at": "18:00",
+          "place": "아버지 댁",
+          "estimatedDurationMinutes": 25
+        },
+        {
+          "title": "환자복 전달",
+          "at": "18:00",
+          "place": "병원 3층 간호사실",
+          "estimatedDurationMinutes": 15
+        },
+        {
+          "title": "등기 우편 수령",
+          "at": "18:00",
+          "place": "관리실",
+          "estimatedDurationMinutes": 10
+        }
+      ]
+    },
+    {
+      "prompt": "4년을 함께 출퇴근한 안내견이 뒷다리를 절어요. 동물병원 첫 진료가 오전 9시인데 저도 9시에는 집을 나서야 출근해요. 아이 없이는 회사까지 길을 못 찾고, 아이가 어디가 아픈지도 저는 볼 수가 없어요.",
+      "tasks": [
+        {
+          "title": "안내견 동물병원 이동·진료 동행",
+          "at": "09:00",
+          "place": "동물병원",
+          "estimatedDurationMinutes": 35
+        },
+        {
+          "title": "출근길 동행",
+          "at": "09:00",
+          "place": "집 앞 ~ 회사",
+          "estimatedDurationMinutes": 30
+        }
+      ]
+    }
+  ]
+}

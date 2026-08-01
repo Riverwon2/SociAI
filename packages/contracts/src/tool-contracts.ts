@@ -488,6 +488,51 @@ export const SendOutreachResultSchema = z.discriminatedUnion('ok', [
   ToolFailureSchema
 ])
 
+export const ClarificationInviteOutcomeSchema = z.enum(['conversation_agreed', 'rejected'])
+
+export const ClarificationInviteDataSchema = z
+  .object({
+    candidateId: CandidateIdSchema,
+    outcome: ClarificationInviteOutcomeSchema,
+    taskStatus: z.literal('held'),
+    requesterMessage: z.string().trim().min(1).max(1_000),
+    isSimulation: z.literal(true)
+  })
+  .strict()
+
+export const ClarificationInviteCallSchema = ToolCallContextSchema.extend({
+  task: TaskSchema,
+  candidate: CandidateSchema,
+  seed: z.string().trim().min(1).max(128)
+}).superRefine((value, context) => {
+  validateTaskContext(value, context)
+  validateCandidateContext(value, context)
+  if (value.task.status !== 'held') {
+    context.addIssue({
+      code: 'custom',
+      message: 'Only held tasks may request a clarification conversation',
+      path: ['task', 'status']
+    })
+  }
+})
+
+export const ClarificationInviteResultSchema = z.discriminatedUnion('ok', [
+  ToolCallContextSchema.extend({
+    candidateId: CandidateIdSchema,
+    ok: z.literal(true),
+    data: ClarificationInviteDataSchema
+  }).superRefine((result, context) => {
+    if (result.candidateId !== result.data.candidateId) {
+      context.addIssue({
+        code: 'custom',
+        message: 'candidateId must match the clarification result context',
+        path: ['data', 'candidateId']
+      })
+    }
+  }),
+  ToolFailureSchema
+])
+
 export const ConfirmMatchCallSchema = ToolCallContextSchema.extend({
   task: TaskSchema,
   candidate: CandidateSchema,
@@ -539,5 +584,9 @@ export type SendBundleOutreachCall = z.infer<typeof SendBundleOutreachCallSchema
 export type SendBundleOutreachResult = z.infer<typeof SendBundleOutreachResultSchema>
 export type SendOutreachCall = z.infer<typeof SendOutreachCallSchema>
 export type SendOutreachResult = z.infer<typeof SendOutreachResultSchema>
+export type ClarificationInviteOutcome = z.infer<typeof ClarificationInviteOutcomeSchema>
+export type ClarificationInviteData = z.infer<typeof ClarificationInviteDataSchema>
+export type ClarificationInviteCall = z.infer<typeof ClarificationInviteCallSchema>
+export type ClarificationInviteResult = z.infer<typeof ClarificationInviteResultSchema>
 export type ConfirmMatchCall = z.infer<typeof ConfirmMatchCallSchema>
 export type ConfirmMatchResult = z.infer<typeof ConfirmMatchResultSchema>

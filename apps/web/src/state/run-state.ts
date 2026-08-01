@@ -159,6 +159,9 @@ export interface TaskRunView {
   readonly attempts: readonly CandidateAttemptView[]
   readonly status: string
   readonly matchedCandidateId: string | null
+  readonly clarificationCandidateId: string | null
+  readonly clarificationOutcome: 'conversation_agreed' | 'rejected' | null
+  readonly clarificationRequesterMessage: string | null
   readonly blockGuidance: string | null
   readonly bundle: TaskBundleView | null
   readonly assignment: TaskAssignmentView | null
@@ -193,6 +196,9 @@ interface MutableTaskRunView {
   attempts: CandidateAttemptView[]
   status: string
   matchedCandidateId: string | null
+  clarificationCandidateId: string | null
+  clarificationOutcome: 'conversation_agreed' | 'rejected' | null
+  clarificationRequesterMessage: string | null
   blockGuidance: string | null
   bundle: TaskBundleView | null
   assignment: TaskAssignmentView | null
@@ -336,6 +342,31 @@ function applyAgentEvent(tasks: Map<string, MutableTaskRunView>, event: AgentEve
       }
       break
     }
+    case 'clarification.invited': {
+      const task = event.taskId === undefined ? undefined : tasks.get(event.taskId)
+      if (task !== undefined) {
+        task.status = '정보 확인 대화 응답 대기'
+        task.clarificationCandidateId = event.data.candidateId
+        task.assignment = null
+        task.matchedCandidateId = null
+      }
+      break
+    }
+    case 'clarification.responded': {
+      const task = event.taskId === undefined ? undefined : tasks.get(event.taskId)
+      if (task !== undefined) {
+        task.status =
+          event.data.outcome === 'conversation_agreed'
+            ? '정보 보류 · 대화 동의'
+            : '정보 보류 · 대화 거절'
+        task.clarificationCandidateId = event.data.candidateId
+        task.clarificationOutcome = event.data.outcome
+        task.clarificationRequesterMessage = event.data.requesterMessage
+        task.assignment = null
+        task.matchedCandidateId = null
+      }
+      break
+    }
     case 'request.completed':
       applyFinalTaskResults(tasks, event.data.result)
       break
@@ -364,6 +395,9 @@ function createTaskView(task: {
     attempts: [],
     status: '작업 생성',
     matchedCandidateId: null,
+    clarificationCandidateId: null,
+    clarificationOutcome: null,
+    clarificationRequesterMessage: null,
     blockGuidance: null,
     bundle: null,
     assignment: null
@@ -419,4 +453,3 @@ function applyFinalTaskResults(tasks: Map<string, MutableTaskRunView>, result: F
     task.matchedCandidateId = taskResult.matchedCandidateId ?? null
   }
 }
-

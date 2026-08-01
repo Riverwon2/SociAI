@@ -91,9 +91,8 @@ export function appendNormalizedEvent(
   value: unknown
 ): NormalizedEventBuffer {
   const parsed = parseConsumableEvent(value)
-  if (parsed === null) {
+  if (parsed === null)
     return appendIssue(state, 'invalid_event', 'Event contract validation failed', value)
-  }
 
   if (state.runId !== null && parsed.runId !== state.runId) {
     return appendIssue(state, 'run_mismatch', 'Event belongs to another run', value)

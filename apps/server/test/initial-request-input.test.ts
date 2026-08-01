@@ -6,7 +6,9 @@ import { loadInitialRequestFromEnvironment } from '../src/config/initial-request
 describe('loadInitialRequestFromEnvironment', () => {
   it('parses and validates a contract-valid request from INITIAL_REQUEST_JSON', () => {
     expect(
-      loadInitialRequestFromEnvironment({ INITIAL_REQUEST_JSON: JSON.stringify(fixedInitialRequest) })
+      loadInitialRequestFromEnvironment({
+        INITIAL_REQUEST_JSON: JSON.stringify(fixedInitialRequest)
+      })
     ).toEqual(fixedInitialRequest)
   })
 

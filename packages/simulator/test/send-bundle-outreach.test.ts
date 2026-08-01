@@ -67,24 +67,22 @@ describe('deterministic bundle outreach simulator', () => {
   })
 
   it('uses a deterministic fallback for a candidate absent from a known fixture', () => {
-    const first = sendBundleOutreach(
-      outreachCall(1, 'retry-path-v1', 'candidate-not-in-fixture')
-    )
-    const second = sendBundleOutreach(
-      outreachCall(1, 'retry-path-v1', 'candidate-not-in-fixture')
-    )
+    const first = sendBundleOutreach(outreachCall(1, 'retry-path-v1', 'candidate-not-in-fixture'))
+    const second = sendBundleOutreach(outreachCall(1, 'retry-path-v1', 'candidate-not-in-fixture'))
 
     expect(second).toEqual(first)
   })
 
-  it('rejects an outreach attempt beyond the two-candidate bundle limit', () => {
+  it('rejects an outreach attempt beyond the three-candidate bundle limit', () => {
     const secondAttempt = outreachCall(2)
-    const thirdAttempt: SendBundleOutreachCall = {
+    const fourthAttempt: SendBundleOutreachCall = {
       ...secondAttempt,
-      assignment: { ...secondAttempt.assignment, attempt: 3 }
+      assignment: { ...secondAttempt.assignment, attempt: 4 }
     }
 
-    expect(() => sendBundleOutreach(thirdAttempt)).toThrow(RangeError)
+    // The shared contract caps `attempt` at three, so schema validation rejects
+    // a fourth attempt before the simulator's own guard is reached.
+    expect(() => sendBundleOutreach(fourthAttempt)).toThrow()
   })
 
   it('returns a contract-valid response within the ten-second demo budget', () => {
@@ -95,12 +93,8 @@ describe('deterministic bundle outreach simulator', () => {
   })
 
   it('retries once after a ten-second timeout and then accepts', () => {
-    const timeout = sendBundleOutreach(
-      outreachCall(2, 'timeout-retry-path-v1', 'candidate-alpha')
-    )
-    const accepted = sendBundleOutreach(
-      outreachCall(1, 'timeout-retry-path-v1', 'candidate-beta')
-    )
+    const timeout = sendBundleOutreach(outreachCall(2, 'timeout-retry-path-v1', 'candidate-alpha'))
+    const accepted = sendBundleOutreach(outreachCall(1, 'timeout-retry-path-v1', 'candidate-beta'))
 
     expect(timeout).toMatchObject({
       ok: true,

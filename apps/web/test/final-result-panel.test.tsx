@@ -72,4 +72,3 @@ describe('final result variants', () => {
     expect(screen.getByText('tool_failure')).toBeInTheDocument()
   })
 })
-
