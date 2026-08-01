@@ -10,11 +10,16 @@ import {
 
 import { FIXED_RUN_ID, fixedInitialRequest } from '../fixtures/fixed-initial-request.js'
 import { TaskPlanOutputSchema } from '../openai/task-plan-schema.js'
+import type { OpenAIResponsesStreamEvent } from '../openai/official-openai-client.js'
 import { WorkflowHookStage, type WorkflowHookEmitter } from './workflow-hooks.js'
 
 export type TaskPlanner = Readonly<{
   decompose: (
-    input: Readonly<{ initialRequest: InitialRequest; runId: string }>
+    input: Readonly<{
+      initialRequest: InitialRequest
+      runId: string
+      onRawEvent?: (event: OpenAIResponsesStreamEvent) => void
+    }>
   ) => Promise<unknown>
 }>
 
@@ -30,13 +35,15 @@ export async function decomposeFixedRequest({
   initialRequest = fixedInitialRequest,
   runId = FIXED_RUN_ID,
   occurredAt = new Date().toISOString(),
-  hooks
+  hooks,
+  onRawEvent
 }: Readonly<{
   planner: TaskPlanner
   initialRequest?: unknown
   runId?: string
   occurredAt?: string
   hooks?: WorkflowHookEmitter
+  onRawEvent?: (event: OpenAIResponsesStreamEvent) => void
 }>): Promise<DecomposedPlan> {
   hooks?.emit(WorkflowHookStage.inputValidation, 'before', { runId })
   const request = parseInitialRequest(initialRequest)
@@ -52,7 +59,11 @@ export async function decomposeFixedRequest({
   })
   let plannerOutput: unknown
   try {
-    plannerOutput = await planner.decompose({ initialRequest: request, runId })
+    plannerOutput = await planner.decompose({
+      initialRequest: request,
+      runId,
+      ...(onRawEvent === undefined ? {} : { onRawEvent })
+    })
   } catch (error) {
     hooks?.emit(WorkflowHookStage.taskDecomposition, 'error', {
       requestId: request.requestId,

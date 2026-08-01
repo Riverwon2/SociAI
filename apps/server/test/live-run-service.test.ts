@@ -105,4 +105,34 @@ describe('createLiveRunService', () => {
     expect(() => service.start(fixedInitialRequest)).toThrow('A run already exists')
     await service.waitForCompletion(runId)
   })
+
+  it('publishes OpenAI SDK event payloads as raw SSE records during planning', async () => {
+    const rawSdkEvent = { type: 'response.created', response: { id: 'resp-live-001' } }
+    const streamingPlanner: TaskPlanner = {
+      decompose: async ({ onRawEvent }) => {
+        onRawEvent?.(rawSdkEvent)
+        return planner.decompose({ initialRequest: fixedInitialRequest, runId })
+      }
+    }
+    const service = createLiveRunService({
+      planner: streamingPlanner,
+      createCandidateProfiles: () => [],
+      createRunId: () => runId,
+      occurredAt: '2026-08-01T09:00:00.000Z'
+    })
+
+    service.start(fixedInitialRequest)
+    await service.waitForCompletion(runId)
+    const received: unknown[] = []
+    const subscription = service.subscribeRawToolEvents(runId, 0, (event) => received.push(event))
+    subscription.close()
+
+    expect(received).toEqual([
+      expect.objectContaining({
+        provider: 'openai',
+        toolCallId: 'call-openai-task-plan',
+        raw: rawSdkEvent
+      })
+    ])
+  })
 })

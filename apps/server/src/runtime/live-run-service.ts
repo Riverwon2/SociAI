@@ -15,6 +15,7 @@ import {
   decomposeFixedRequest,
   type TaskPlanner
 } from '../orchestration/decompose-fixed-request.js'
+import type { OpenAIResponsesStreamEvent } from '../openai/official-openai-client.js'
 import {
   runBundleWorkflow,
   type BundleWorkflowTools
@@ -83,6 +84,18 @@ export function createLiveRunService({
       createCandidateProfiles,
       ...(workflowTools === undefined ? {} : { workflowTools }),
       seed,
+      onRawEvent: (event) => {
+        publishRawToolEvent(
+          record,
+          createOpenAIRawToolEvent({
+            event,
+            runId,
+            requestId: request.requestId,
+            sequence: record.rawToolEvents.length + 1,
+            occurredAt: occurredAt ?? new Date().toISOString()
+          })
+        )
+      },
       ...(occurredAt === undefined ? {} : { occurredAt })
     }).catch(() => undefined)
 
@@ -125,6 +138,7 @@ async function executeRun({
   createCandidateProfiles,
   workflowTools,
   seed,
+  onRawEvent,
   occurredAt
 }: Readonly<{
   record: RunRecord
@@ -134,6 +148,7 @@ async function executeRun({
   createCandidateProfiles: (tasks: readonly Task[]) => readonly unknown[]
   workflowTools?: Partial<BundleWorkflowTools>
   seed: string
+  onRawEvent: (event: OpenAIResponsesStreamEvent) => void
   occurredAt?: string
 }>): Promise<void> {
   try {
@@ -141,6 +156,7 @@ async function executeRun({
       planner,
       initialRequest: request,
       runId,
+      onRawEvent,
       ...(occurredAt === undefined ? {} : { occurredAt })
     })
     for (const event of decomposition.events) publishAgentEvent(record, event)
@@ -158,6 +174,33 @@ async function executeRun({
   } finally {
     record.resolveCompletion()
   }
+}
+
+function createOpenAIRawToolEvent({
+  event,
+  runId,
+  requestId,
+  sequence,
+  occurredAt
+}: Readonly<{
+  event: unknown
+  runId: string
+  requestId: string
+  sequence: number
+  occurredAt: string
+}>): RawToolEvent {
+  return RawToolEventSchema.parse({
+    schemaVersion: SCHEMA_VERSION,
+    eventId: `${runId}-raw-${sequence}`,
+    runId,
+    requestId,
+    toolCallId: 'call-openai-task-plan',
+    sequence,
+    occurredAt,
+    direction: 'tool_result',
+    provider: 'openai',
+    raw: event
+  })
 }
 
 function createRunRecord(): RunRecord {

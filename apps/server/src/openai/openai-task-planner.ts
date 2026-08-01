@@ -1,10 +1,11 @@
 import type { InitialRequest } from '@30-minute-exchange/contracts'
 
-import type { OpenAIPlanClient } from './official-openai-client.js'
+import type { OpenAIPlanClient, OpenAIResponsesStreamEvent } from './official-openai-client.js'
 
 export type TaskPlanningInput = Readonly<{
   initialRequest: InitialRequest
   runId: string
+  onRawEvent?: (event: OpenAIResponsesStreamEvent) => void
 }>
 
 export class OpenAITaskPlanner {
@@ -18,7 +19,8 @@ export class OpenAITaskPlanner {
   async decompose(input: TaskPlanningInput): Promise<unknown> {
     return this.dependencies.client.createStructuredTaskPlan({
       model: this.dependencies.model,
-      prompt: createPlanningPrompt(input)
+      prompt: createPlanningPrompt(input),
+      ...(input.onRawEvent === undefined ? {} : { onRawEvent: input.onRawEvent })
     })
   }
 }

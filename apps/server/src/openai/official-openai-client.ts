@@ -18,13 +18,22 @@ export type OpenAIResponsesRequest = Readonly<{
   }>
 }>
 
+export type OpenAIResponsesStreamEvent = Readonly<{
+  type: string
+  [key: string]: unknown
+}>
+
 export type OpenAIResponsesApi = Readonly<{
   create: (request: OpenAIResponsesRequest) => Promise<Readonly<{ output_text: string }>>
+  createStream?: (
+    request: OpenAIResponsesRequest
+  ) => Promise<AsyncIterable<OpenAIResponsesStreamEvent>>
 }>
 
 export type OpenAIPlanRequest = Readonly<{
   model: string
   prompt: string
+  onRawEvent?: (event: OpenAIResponsesStreamEvent) => void
 }>
 
 export type OpenAIPlanClient = Readonly<{
@@ -38,8 +47,12 @@ export class OfficialOpenAIPlanClient implements OpenAIPlanClient {
     this.responsesApi = responsesApi
   }
 
-  async createStructuredTaskPlan({ model, prompt }: OpenAIPlanRequest): Promise<unknown> {
-    const response = await this.responsesApi.create({
+  async createStructuredTaskPlan({
+    model,
+    prompt,
+    onRawEvent
+  }: OpenAIPlanRequest): Promise<unknown> {
+    const request: OpenAIResponsesRequest = {
       model,
       input: prompt,
       text: {
@@ -50,9 +63,32 @@ export class OfficialOpenAIPlanClient implements OpenAIPlanClient {
           schema: TaskPlanResponseJsonSchema
         }
       }
-    })
+    }
 
-    return parseStructuredOutput(response.output_text)
+    if (onRawEvent === undefined || this.responsesApi.createStream === undefined) {
+      const response = await this.responsesApi.create(request)
+      return parseStructuredOutput(response.output_text)
+    }
+
+    const stream = await this.responsesApi.createStream(request)
+    let outputText = ''
+    for await (const event of stream) {
+      onRawEvent(event)
+      if (event.type === 'response.output_text.delta' && typeof event.delta === 'string') {
+        outputText += event.delta
+      }
+      if (
+        event.type === 'response.completed' &&
+        typeof event.response === 'object' &&
+        event.response !== null &&
+        'output_text' in event.response &&
+        typeof event.response.output_text === 'string'
+      ) {
+        outputText = event.response.output_text
+      }
+    }
+
+    return parseStructuredOutput(outputText)
   }
 }
 
@@ -63,6 +99,10 @@ function createOpenAIResponsesApi(config: OpenAIConfig): OpenAIResponsesApi {
     create: async (request) => {
       const response = await client.responses.create(request)
       return { output_text: response.output_text }
+    },
+    createStream: async (request) => {
+      const stream = await client.responses.create({ ...request, stream: true })
+      return stream as AsyncIterable<OpenAIResponsesStreamEvent>
     }
   }
 }

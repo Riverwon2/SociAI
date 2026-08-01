@@ -14,6 +14,7 @@ export function loadWorkspaceEnvironmentFile({
   exists = existsSync,
   load = process.loadEnvFile
 }: EnvironmentFileDependencies = {}): void {
-  const path = resolve(workingDirectory, '../../.env')
-  if (exists(path)) load(path)
+  const paths = [resolve(workingDirectory, '.env'), resolve(workingDirectory, '../../.env')]
+  const path = paths.find((candidate) => exists(candidate))
+  if (path !== undefined) load(path)
 }

@@ -58,4 +58,33 @@ describe('OfficialOpenAIPlanClient', () => {
       client.createStructuredTaskPlan({ model: 'gpt-5-mini', prompt: 'test prompt' })
     ).rejects.toThrow(/did not contain text/)
   })
+
+  it('streams each unmodified SDK event when raw capture is requested', async () => {
+    const providerEvents = [
+      { type: 'response.created', response: { id: 'resp-001' } },
+      { type: 'response.output_text.delta', delta: '{"tasks":[],"summary":"streamed"}' },
+      { type: 'response.completed', response: { output_text: '{"tasks":[],"summary":"streamed"}' } }
+    ]
+    const responsesApi: OpenAIResponsesApi = {
+      create: async () => ({ output_text: 'unused' }),
+      createStream: async () =>
+        (async function* () {
+          yield* providerEvents
+        })()
+    }
+    const received: unknown[] = []
+    const client = new OfficialOpenAIPlanClient(
+      { apiKey: 'test-key', model: 'gpt-5-mini' },
+      responsesApi
+    )
+
+    await expect(
+      client.createStructuredTaskPlan({
+        model: 'gpt-5-mini',
+        prompt: 'test prompt',
+        onRawEvent: (event) => received.push(event)
+      })
+    ).resolves.toEqual({ tasks: [], summary: 'streamed' })
+    expect(received).toEqual(providerEvents)
+  })
 })
