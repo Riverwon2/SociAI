@@ -20,6 +20,7 @@ import {
 } from './shared.js'
 import { SufficiencyDecisionSchema } from './sufficiency-decision.js'
 import { TaskSchema } from './task.js'
+import { ClarificationInviteDataSchema } from './tool-contracts.js'
 
 export const AgentEventTypeSchema = z.enum([
   'request.created',
@@ -28,6 +29,8 @@ export const AgentEventTypeSchema = z.enum([
   'safety.checked',
   'sufficiency.checked',
   'task.held',
+  'clarification.invited',
+  'clarification.responded',
   'bundles.planned',
   'assignments.planned',
   'candidates.ranked',
@@ -165,6 +168,21 @@ const TaskHeldEventSchema = createEventSchema(
       guidance: z.string().trim().min(1).max(1_000)
     })
     .strict(),
+  true
+)
+const ClarificationInvitedEventSchema = createEventSchema(
+  'clarification.invited',
+  z
+    .object({
+      toolCallId: ToolCallIdSchema,
+      candidateId: CandidateIdSchema
+    })
+    .strict(),
+  true
+)
+const ClarificationRespondedEventSchema = createEventSchema(
+  'clarification.responded',
+  ClarificationInviteDataSchema,
   true
 )
 const BundlesPlannedEventSchema = createEventSchema(
@@ -313,6 +331,8 @@ export const AgentEventSchema = z.discriminatedUnion('type', [
   SafetyCheckedEventSchema,
   SufficiencyCheckedEventSchema,
   TaskHeldEventSchema,
+  ClarificationInvitedEventSchema,
+  ClarificationRespondedEventSchema,
   BundlesPlannedEventSchema,
   AssignmentsPlannedEventSchema,
   CandidatesRankedEventSchema,

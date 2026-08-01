@@ -11,6 +11,7 @@ import type { RunState } from '../state/run-state.js'
 export type RequesterDemoStage =
   | 'preparing'
   | 'searching'
+  | 'clarification'
   | 'matched'
   | 'partially_matched'
   | 'safety_excluded'
@@ -30,92 +31,158 @@ export interface ParticipantRequestCard {
   readonly distanceKm: number | null
 }
 
-export interface ParticipantDemoView {
-  readonly requesterStage: RequesterDemoStage
-  readonly helperStage: HelperDemoStage
-  readonly request: InitialRequest | null
-  readonly requestCard: ParticipantRequestCard | null
+/** One requester-to-helper connection. A request split into three tasks has three. */
+export interface HelperConnectionView {
+  readonly taskId: string
+  readonly taskTitle: string
+  readonly stage: HelperDemoStage
   readonly candidate: Candidate | null
+  readonly candidateName: string | null
+  readonly requestCard: ParticipantRequestCard | null
   readonly attempt: number | null
   readonly previousOutcome: 'rejected' | 'timed_out' | null
   readonly matchedCandidateName: string | null
+}
+
+export interface ParticipantDemoView {
+  readonly requesterStage: RequesterDemoStage
+  readonly request: InitialRequest | null
   readonly result: FinalResult | null
+  readonly helpers: readonly HelperConnectionView[]
+  readonly clarificationResults: readonly ClarificationRequesterResult[]
+}
+
+export interface ClarificationRequesterResult {
+  readonly taskId: string
+  readonly candidateId: string
+  readonly outcome: 'conversation_agreed' | 'rejected'
+  readonly requesterMessage: string
 }
 
 export function deriveParticipantDemoView(run: RunState): ParticipantDemoView {
   const events = knownEvents(run)
-  const request = firstEvent(events, 'request.created')?.data.request ?? null
-  const tasks = events
-    .filter((event): event is Extract<AgentEvent, { type: 'task.created' }> =>
-      isEventType(event, 'task.created')
-    )
-    .map((event) => event.data.task)
-  const candidates = events
-    .filter((event): event is Extract<AgentEvent, { type: 'candidates.ranked' }> =>
-      isEventType(event, 'candidates.ranked')
-    )
-    .flatMap((event) => event.data.candidates)
-  const latestOutreach = lastEvent(events, 'outreach.sent')
-  const latestReply = lastEvent(events, 'neighbor.replied')
-  const latestTimeout = lastEvent(events, 'outreach.timed_out')
-  const latestResponse = laterEvent(latestReply, latestTimeout)
-  const match = lastEvent(events, 'match.confirmed')
-  const result = run.result
-  const candidateId = match?.data.candidateId ?? latestOutreach?.data.candidateId
-  const candidate = candidates.find((item) => item.candidateId === candidateId) ?? null
-  const taskId = match?.taskId ?? latestOutreach?.taskId ?? firstActionableTaskId(tasks, result)
-  const task = tasks.find((item) => item.taskId === taskId) ?? tasks[0] ?? null
-  const previousOutcome = responseOutcome(latestResponse)
+  const sources: HelperSources = {
+    events,
+    tasks: collect(events, 'task.created').map((event) => event.data.task),
+    candidates: collect(events, 'candidates.ranked').flatMap((event) => event.data.candidates),
+    result: run.result
+  }
+  const helpers = helperTaskIds(events).map((taskId) => buildHelperView(taskId, sources))
 
   return {
-    requesterStage: requesterStage(run, events),
-    helperStage: helperStage(latestOutreach, latestResponse, match, result),
-    request,
-    requestCard: task === null ? null : toRequestCard(task, candidate),
-    candidate,
-    attempt: latestOutreach?.data.attempt ?? null,
-    previousOutcome,
-    matchedCandidateName:
-      match === undefined
-        ? null
-        : (candidates.find((item) => item.candidateId === match.data.candidateId)?.displayName ??
-          null),
-    result
+    requesterStage: requesterStage(run, events, helpers),
+    request: collect(events, 'request.created')[0]?.data.request ?? null,
+    result: run.result,
+    helpers,
+    clarificationResults: collect(events, 'clarification.responded').flatMap((event) =>
+      event.taskId === undefined
+        ? []
+        : [
+            {
+              taskId: event.taskId,
+              candidateId: event.data.candidateId,
+              outcome: event.data.outcome,
+              requesterMessage: event.data.requesterMessage
+            }
+          ]
+    )
   }
 }
 
-function requesterStage(run: RunState, events: readonly AgentEvent[]): RequesterDemoStage {
+/**
+ * A helper screen exists as soon as its task clears the safety check, so a split
+ * request shows every connection while the plan is still being prepared.
+ */
+function helperTaskIds(events: readonly AgentEvent[]): readonly string[] {
+  const excluded = new Set([
+    ...collect(events, 'task.blocked').flatMap(({ taskId }) => taskId ?? []),
+    ...collect(events, 'task.held').flatMap(({ taskId }) => taskId ?? [])
+  ])
+  const cleared = collect(events, 'safety.checked')
+    .filter((event) => event.data.decision.action !== 'block')
+    .flatMap(({ taskId }) => taskId ?? [])
+  const contacted = collect(events, 'outreach.sent').flatMap(({ taskId }) => taskId ?? [])
+
+  return [...new Set([...cleared, ...contacted])].filter((taskId) => !excluded.has(taskId))
+}
+
+interface HelperSources {
+  readonly events: readonly AgentEvent[]
+  readonly tasks: readonly Task[]
+  readonly candidates: readonly Candidate[]
+  readonly result: FinalResult | null
+}
+
+function buildHelperView(taskId: string, sources: HelperSources): HelperConnectionView {
+  const { candidates, events, result, tasks } = sources
+  const task = tasks.find((item) => item.taskId === taskId) ?? null
+  const outreach = lastOf(collect(events, 'outreach.sent').filter(onTask(taskId)))
+  const response = lastResponse(events, taskId)
+  const match = lastOf(collect(events, 'match.confirmed').filter(onTask(taskId)))
+  const matchedByResult =
+    result?.taskResults.some((item) => item.taskId === taskId && item.status === 'matched') === true
+
+  const candidateId = match?.data.candidateId ?? outreach?.data.candidateId
+  const candidate = candidates.find((item) => item.candidateId === candidateId) ?? null
+
+  return {
+    taskId,
+    taskTitle: task?.title ?? taskId,
+    stage: helperStage(outreach, response, match !== undefined || matchedByResult),
+    candidate,
+    candidateName: candidate?.displayName ?? null,
+    requestCard: task === null ? null : toRequestCard(task, candidate),
+    attempt: outreach?.data.attempt ?? null,
+    previousOutcome: responseOutcome(response),
+    matchedCandidateName: match === undefined ? null : (candidate?.displayName ?? null)
+  }
+}
+
+function helperStage(
+  outreach: Extract<AgentEvent, { type: 'outreach.sent' }> | undefined,
+  response: ResponseEvent | undefined,
+  matched: boolean
+): HelperDemoStage {
+  if (matched) return 'mission'
+  if (outreach === undefined) return 'waiting'
+  if (response === undefined || outreach.sequence > response.sequence) return 'request_received'
+  return responseOutcome(response) === null ? 'mission' : 'rerouting'
+}
+
+function requesterStage(
+  run: RunState,
+  events: readonly AgentEvent[],
+  helpers: readonly HelperConnectionView[]
+): RequesterDemoStage {
   if (run.phase === 'failed') return 'failed'
   if (run.result !== null) {
     return run.result.status === 'fully_matched' ? 'matched' : run.result.status
   }
-  if (lastEvent(events, 'match.confirmed') !== undefined) return 'matched'
+  if (collect(events, 'clarification.responded').length > 0) return 'clarification'
+  // A split request stays in search until every connection has been accepted.
+  if (helpers.length > 0 && helpers.every(({ stage }) => stage === 'mission')) return 'matched'
   if (
-    lastEvent(events, 'candidates.ranked') !== undefined ||
-    lastEvent(events, 'outreach.sent') !== undefined
+    collect(events, 'candidates.ranked').length > 0 ||
+    collect(events, 'outreach.sent').length > 0
   ) {
     return 'searching'
   }
   return 'preparing'
 }
 
-function helperStage(
-  outreach: Extract<AgentEvent, { type: 'outreach.sent' }> | undefined,
-  response: Extract<AgentEvent, { type: 'neighbor.replied' | 'outreach.timed_out' }> | undefined,
-  match: Extract<AgentEvent, { type: 'match.confirmed' }> | undefined,
-  result: FinalResult | null
-): HelperDemoStage {
-  if (match !== undefined || result?.taskResults.some(({ status }) => status === 'matched')) {
-    return 'mission'
-  }
-  if (outreach === undefined) return 'waiting'
-  if (response === undefined || outreach.sequence > response.sequence) return 'request_received'
-  return responseOutcome(response) === null ? 'mission' : 'rerouting'
+type ResponseEvent = Extract<AgentEvent, { type: 'neighbor.replied' | 'outreach.timed_out' }>
+
+function lastResponse(events: readonly AgentEvent[], taskId: string): ResponseEvent | undefined {
+  return lastOf(
+    events.filter(
+      (event): event is ResponseEvent =>
+        (event.type === 'neighbor.replied' || event.type === 'outreach.timed_out') &&
+        event.taskId === taskId
+    )
+  )
 }
 
-function responseOutcome(
-  event: Extract<AgentEvent, { type: 'neighbor.replied' | 'outreach.timed_out' }> | undefined
-): 'rejected' | 'timed_out' | null {
+function responseOutcome(event: ResponseEvent | undefined): 'rejected' | 'timed_out' | null {
   if (event === undefined) return null
   if (event.type === 'outreach.timed_out') return 'timed_out'
   return event.data.response === 'accepted' ? null : 'rejected'
@@ -134,50 +201,23 @@ function toRequestCard(task: Task, candidate: Candidate | null): ParticipantRequ
   }
 }
 
-function firstActionableTaskId(tasks: readonly Task[], result: FinalResult | null) {
-  const matched = result?.taskResults.find(({ status }) => status === 'matched')
-  if (matched !== undefined) return matched.taskId
-  const excludedIds = new Set(
-    result?.taskResults
-      .filter(({ status }) => status === 'safety_excluded')
-      .map(({ taskId }) => taskId) ?? []
-  )
-  return tasks.find(({ taskId }) => !excludedIds.has(taskId))?.taskId
-}
-
 function knownEvents(run: RunState): readonly AgentEvent[] {
   return run.normalized.items.flatMap((item) => (item.kind === 'known' ? [item.event] : []))
 }
 
-function isEventType<TType extends AgentEvent['type']>(
-  event: AgentEvent,
+function collect<TType extends AgentEvent['type']>(
+  events: readonly AgentEvent[],
   type: TType
-): event is Extract<AgentEvent, { type: TType }> {
-  return event.type === type
-}
-
-function firstEvent<TType extends AgentEvent['type']>(events: readonly AgentEvent[], type: TType) {
-  return events.find((event): event is Extract<AgentEvent, { type: TType }> =>
-    isEventType(event, type)
+): readonly Extract<AgentEvent, { type: TType }>[] {
+  return events.filter(
+    (event): event is Extract<AgentEvent, { type: TType }> => event.type === type
   )
 }
 
-function lastEvent<TType extends AgentEvent['type']>(
-  events: readonly AgentEvent[],
-  type: TType
-): Extract<AgentEvent, { type: TType }> | undefined {
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index]
-    if (event !== undefined && isEventType(event, type)) return event
-  }
-  return undefined
+function onTask(taskId: string) {
+  return (event: AgentEvent) => event.taskId === taskId
 }
 
-function laterEvent(
-  first: Extract<AgentEvent, { type: 'neighbor.replied' }> | undefined,
-  second: Extract<AgentEvent, { type: 'outreach.timed_out' }> | undefined
-) {
-  if (first === undefined) return second
-  if (second === undefined) return first
-  return first.sequence > second.sequence ? first : second
+function lastOf<T>(items: readonly T[]): T | undefined {
+  return items[items.length - 1]
 }

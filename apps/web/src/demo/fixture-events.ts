@@ -21,8 +21,10 @@ interface BuildContext {
   taskIndex: number
   safetyIndex: number
   sufficiencyIndex: number
+  candidateIndex: number
   outreachIndex: number
   responseIndex: number
+  matchIndex: number
   revision: number
   lastOutcome: 'rejected' | 'timed_out' | null
 }
@@ -34,8 +36,10 @@ function createBuildContext(fixture: DemoScenarioFixture, request: InitialReques
     taskIndex: 0,
     safetyIndex: 0,
     sufficiencyIndex: 0,
+    candidateIndex: 0,
     outreachIndex: 0,
     responseIndex: 0,
+    matchIndex: 0,
     revision: 1,
     lastOutcome: null
   }
@@ -79,6 +83,10 @@ function eventPayload(type: AgentEvent['type'], context: BuildContext): Record<s
       return sufficiencyPayload(context)
     case 'task.held':
       return heldPayload(context)
+    case 'clarification.invited':
+      return clarificationInvitedPayload(context)
+    case 'clarification.responded':
+      return clarificationRespondedPayload(context)
     case 'bundles.planned':
       return bundlesPayload(context)
     case 'assignments.planned':
@@ -138,6 +146,11 @@ function sufficiencyPayload(context: BuildContext) {
   const tasks = actionableTasks(context.fixture)
   const task = requireItem(tasks, context.sufficiencyIndex, 'sufficiency task')
   context.sufficiencyIndex += 1
+  const isHeld = taskResultStatus(context.fixture, task) === 'held'
+  const missingInformation =
+    task.missingInformation.length > 0
+      ? task.missingInformation
+      : [{ code: 'details', message: '필수 정보가 부족합니다.' }]
   return {
     taskId: task.taskId,
     data: {
@@ -146,23 +159,70 @@ function sufficiencyPayload(context: BuildContext) {
         runId: task.runId,
         requestId: context.request.requestId,
         taskId: task.taskId,
-        status: 'sufficient',
-        action: 'proceed',
-        reasonCodes: ['required_information_present'],
-        missingInformation: []
+        status: isHeld ? 'insufficient' : 'sufficient',
+        action: isHeld ? 'hold' : 'proceed',
+        reasonCodes: [isHeld ? 'required_information_missing' : 'required_information_present'],
+        missingInformation: isHeld ? missingInformation : []
       }
     }
   }
 }
 
 function heldPayload(context: BuildContext) {
-  const task = requireItem(actionableTasks(context.fixture), 0, 'held task')
+  const task =
+    context.fixture.tasks.find(
+      (candidate) => taskResultStatus(context.fixture, candidate) === 'held'
+    ) ?? requireItem(actionableTasks(context.fixture), 0, 'held task')
   return {
     taskId: task.taskId,
     data: {
       reasonCodes: ['required_information_missing'],
-      missingInformation: [{ code: 'details', message: '필수 정보가 부족합니다.' }],
+      missingInformation:
+        task.missingInformation.length > 0
+          ? task.missingInformation
+          : [{ code: 'details', message: '필수 정보가 부족합니다.' }],
       guidance: '추가 질문 없이 해당 작업만 보류합니다.'
+    }
+  }
+}
+
+/** A clarification invite belongs to a held task and the neighbour asked about it. */
+function clarificationPair(context: BuildContext) {
+  const task = requireHeldTask(context.fixture)
+  const candidate = context.fixture.candidates.find(({ taskId }) => taskId === task.taskId)
+  if (candidate === undefined) {
+    throw new Error('Fixture is missing a candidate for the clarification invite')
+  }
+  return { candidate, task }
+}
+
+function requireHeldTask(fixture: DemoScenarioFixture): Task {
+  const task = fixture.tasks.find((candidate) => taskResultStatus(fixture, candidate) === 'held')
+  if (task === undefined) throw new Error('Fixture is missing a held task')
+  return task
+}
+
+function clarificationInvitedPayload(context: BuildContext) {
+  const { candidate, task } = clarificationPair(context)
+  return {
+    taskId: task.taskId,
+    data: {
+      toolCallId: `clarification_${task.taskId}`,
+      candidateId: candidate.candidateId
+    }
+  }
+}
+
+function clarificationRespondedPayload(context: BuildContext) {
+  const { candidate, task } = clarificationPair(context)
+  return {
+    taskId: task.taskId,
+    data: {
+      candidateId: candidate.candidateId,
+      outcome: 'conversation_agreed',
+      taskStatus: 'held',
+      requesterMessage: `${candidate.displayName}: 정보 확인 대화에 동의했습니다.`,
+      isSimulation: true
     }
   }
 }
@@ -193,7 +253,12 @@ function assignmentsPayload(context: BuildContext) {
 }
 
 function candidatesPayload(context: BuildContext) {
-  const task = requireItem(actionableTasks(context.fixture), 0, 'candidate task')
+  const task = requireItem(
+    actionableTasks(context.fixture),
+    context.candidateIndex,
+    'candidate task'
+  )
+  context.candidateIndex += 1
   const candidates = context.fixture.candidates
     .filter(({ taskId }) => taskId === task.taskId)
     .map((candidate) => ({ ...candidate, requestId: context.request.requestId }))
@@ -293,8 +358,11 @@ function planUpdatedPayload(context: BuildContext) {
 }
 
 function matchPayload(context: BuildContext) {
-  const accepted = context.fixture.responseSequence.find(({ outcome }) => outcome === 'accepted')
+  const accepted = context.fixture.responseSequence.filter(({ outcome }) => outcome === 'accepted')[
+    context.matchIndex
+  ]
   if (accepted === undefined) throw new Error('Fixture requires an accepted response for match')
+  context.matchIndex += 1
   const task = requireTask(context.fixture.tasks, accepted.taskId)
   return {
     taskId: task.taskId,
@@ -394,6 +462,8 @@ function eventMessage(type: AgentEvent['type']): string {
       'safety.checked': '작업별 안전성을 확인했습니다.',
       'sufficiency.checked': '진행에 필요한 정보가 충분한지 확인했습니다.',
       'task.held': '정보가 부족한 작업을 보류했습니다.',
+      'clarification.invited': '부족한 정보를 확인할 대화를 이웃에게 요청했습니다.',
+      'clarification.responded': '이웃이 확인 대화 요청에 응답했습니다.',
       'bundles.planned': '한 이웃이 함께 처리할 수 있는 작업끼리 묶었습니다.',
       'assignments.planned': '묶음별로 도와줄 이웃을 배정했습니다.',
       'candidates.ranked': '조건에 맞는 이웃 후보를 정렬했습니다.',

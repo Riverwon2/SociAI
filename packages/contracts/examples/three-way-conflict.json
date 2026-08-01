@@ -1,0 +1,410 @@
+{
+  "schemaVersion": 2,
+  "scenarioId": "three_way_conflict",
+  "seed": "three-way-conflict-001",
+  "initialRequest": {
+    "schemaVersion": 2,
+    "requestId": "request_three_way_001",
+    "helpDescription": "오후 6시에 아이 학원 차가 아파트 정문에 도착해서 마중 나가 주셔야 하고, 관리실이 6시에 문을 닫아 그 전에 미리 결제한 택배를 찾아 주셔야 하고, 같은 6시에 도착하는 마트 배송도 현관 앞에서 받아 주세요.",
+    "timeWindow": {
+      "startAt": "2026-08-01T17:50:00+09:00",
+      "endAt": "2026-08-01T18:20:00+09:00"
+    },
+    "maxActivityDurationMinutes": 30,
+    "timeFlexibility": { "kind": "fixed" },
+    "activityRegion": {
+      "label": "해오름동",
+      "approximateLocation": "해오름동 주민센터 인근"
+    },
+    "costPolicy": { "choice": "none", "paymentMethod": "not_applicable" },
+    "fallbackPolicy": {
+      "allowTimeAdjustment": false,
+      "allowPartialCompletion": true,
+      "allowScopeReduction": false
+    }
+  },
+  "tasks": [
+    {
+      "schemaVersion": 2,
+      "runId": "run_three_way_001",
+      "requestId": "request_three_way_001",
+      "taskId": "task_three_way_pickup",
+      "title": "아이 마중",
+      "description": "학원 차에서 내리는 아이를 아파트 정문에서 맞아 집까지 데려다준다.",
+      "timeWindow": {
+        "startAt": "2026-08-01T18:00:00+09:00",
+        "endAt": "2026-08-01T18:10:00+09:00"
+      },
+      "timeSource": "explicit",
+      "timeCertainty": "fixed",
+      "durationSource": "explicit",
+      "region": {
+        "label": "해오름동",
+        "approximateLocation": "해오름동 아파트 정문"
+      },
+      "requiredExperience": [],
+      "estimatedDurationMinutes": 10,
+      "status": "created",
+      "missingInformation": []
+    },
+    {
+      "schemaVersion": 2,
+      "runId": "run_three_way_001",
+      "requestId": "request_three_way_001",
+      "taskId": "task_three_way_parcel",
+      "title": "택배 수령",
+      "description": "관리실 마감 전에 미리 결제한 택배를 찾아 현관 앞에 놓는다.",
+      "timeWindow": {
+        "startAt": "2026-08-01T18:00:00+09:00",
+        "endAt": "2026-08-01T18:10:00+09:00"
+      },
+      "timeSource": "explicit",
+      "timeCertainty": "fixed",
+      "durationSource": "explicit",
+      "region": {
+        "label": "해오름동",
+        "approximateLocation": "해오름동 아파트 관리실"
+      },
+      "requiredExperience": [],
+      "estimatedDurationMinutes": 10,
+      "status": "created",
+      "missingInformation": []
+    },
+    {
+      "schemaVersion": 2,
+      "runId": "run_three_way_001",
+      "requestId": "request_three_way_001",
+      "taskId": "task_three_way_delivery",
+      "title": "배송 수령",
+      "description": "도착한 마트 배송 상자를 현관 앞에서 받아 안쪽으로 옮긴다.",
+      "timeWindow": {
+        "startAt": "2026-08-01T18:00:00+09:00",
+        "endAt": "2026-08-01T18:10:00+09:00"
+      },
+      "timeSource": "explicit",
+      "timeCertainty": "fixed",
+      "durationSource": "explicit",
+      "region": {
+        "label": "해오름동",
+        "approximateLocation": "해오름동 아파트 현관 앞"
+      },
+      "requiredExperience": [],
+      "estimatedDurationMinutes": 10,
+      "status": "created",
+      "missingInformation": []
+    }
+  ],
+  "candidates": [
+    {
+      "schemaVersion": 2,
+      "runId": "run_three_way_001",
+      "requestId": "request_three_way_001",
+      "taskId": "task_three_way_pickup",
+      "candidateId": "candidate_three_way_pickup",
+      "displayName": "가상 이웃 하나",
+      "activityRegion": {
+        "label": "해오름동",
+        "approximateLocation": "해오름동 주민센터 인근"
+      },
+      "activityRadiusKm": 1,
+      "isAvailable": true,
+      "distanceKm": 0.3,
+      "experienceTags": [],
+      "reliabilityRate": 0.9,
+      "scoreBreakdown": {
+        "availability": 1,
+        "distance": 0.9,
+        "experience": 1,
+        "reliability": 0.9,
+        "weightedTotal": 0.96
+      },
+      "rank": 1,
+      "isSimulation": true
+    },
+    {
+      "schemaVersion": 2,
+      "runId": "run_three_way_001",
+      "requestId": "request_three_way_001",
+      "taskId": "task_three_way_parcel",
+      "candidateId": "candidate_three_way_parcel",
+      "displayName": "가상 이웃 두리",
+      "activityRegion": {
+        "label": "해오름동",
+        "approximateLocation": "해오름동 주민센터 인근"
+      },
+      "activityRadiusKm": 1,
+      "isAvailable": true,
+      "distanceKm": 0.5,
+      "experienceTags": [],
+      "reliabilityRate": 0.8,
+      "scoreBreakdown": {
+        "availability": 1,
+        "distance": 0.8,
+        "experience": 1,
+        "reliability": 0.8,
+        "weightedTotal": 0.92
+      },
+      "rank": 1,
+      "isSimulation": true
+    },
+    {
+      "schemaVersion": 2,
+      "runId": "run_three_way_001",
+      "requestId": "request_three_way_001",
+      "taskId": "task_three_way_delivery",
+      "candidateId": "candidate_three_way_delivery",
+      "displayName": "가상 이웃 세아",
+      "activityRegion": {
+        "label": "해오름동",
+        "approximateLocation": "해오름동 주민센터 인근"
+      },
+      "activityRadiusKm": 1,
+      "isAvailable": true,
+      "distanceKm": 0.2,
+      "experienceTags": [],
+      "reliabilityRate": 0.9,
+      "scoreBreakdown": {
+        "availability": 1,
+        "distance": 1,
+        "experience": 1,
+        "reliability": 0.9,
+        "weightedTotal": 0.985
+      },
+      "rank": 1,
+      "isSimulation": true
+    }
+  ],
+  "expectedBundles": [
+    {
+      "schemaVersion": 2,
+      "runId": "run_three_way_001",
+      "requestId": "request_three_way_001",
+      "bundleId": "bundle_three_way_pickup",
+      "taskIds": ["task_three_way_pickup"],
+      "scheduledWindow": {
+        "startAt": "2026-08-01T18:00:00+09:00",
+        "endAt": "2026-08-01T18:10:00+09:00"
+      },
+      "totalActivityDurationMinutes": 10,
+      "waitingMinutes": 0,
+      "requiredExperience": [],
+      "reasonCodes": ["fixed_time_conflict"]
+    },
+    {
+      "schemaVersion": 2,
+      "runId": "run_three_way_001",
+      "requestId": "request_three_way_001",
+      "bundleId": "bundle_three_way_parcel",
+      "taskIds": ["task_three_way_parcel"],
+      "scheduledWindow": {
+        "startAt": "2026-08-01T18:00:00+09:00",
+        "endAt": "2026-08-01T18:10:00+09:00"
+      },
+      "totalActivityDurationMinutes": 10,
+      "waitingMinutes": 0,
+      "requiredExperience": [],
+      "reasonCodes": ["fixed_time_conflict"]
+    },
+    {
+      "schemaVersion": 2,
+      "runId": "run_three_way_001",
+      "requestId": "request_three_way_001",
+      "bundleId": "bundle_three_way_delivery",
+      "taskIds": ["task_three_way_delivery"],
+      "scheduledWindow": {
+        "startAt": "2026-08-01T18:00:00+09:00",
+        "endAt": "2026-08-01T18:10:00+09:00"
+      },
+      "totalActivityDurationMinutes": 10,
+      "waitingMinutes": 0,
+      "requiredExperience": [],
+      "reasonCodes": ["fixed_time_conflict"]
+    }
+  ],
+  "expectedAssignments": [
+    {
+      "schemaVersion": 2,
+      "runId": "run_three_way_001",
+      "requestId": "request_three_way_001",
+      "assignmentId": "assignment_three_way_pickup",
+      "bundleId": "bundle_three_way_pickup",
+      "candidateId": "candidate_three_way_pickup",
+      "taskIds": ["task_three_way_pickup"],
+      "scheduledWindow": {
+        "startAt": "2026-08-01T18:00:00+09:00",
+        "endAt": "2026-08-01T18:10:00+09:00"
+      },
+      "isSimulation": true
+    },
+    {
+      "schemaVersion": 2,
+      "runId": "run_three_way_001",
+      "requestId": "request_three_way_001",
+      "assignmentId": "assignment_three_way_parcel",
+      "bundleId": "bundle_three_way_parcel",
+      "candidateId": "candidate_three_way_parcel",
+      "taskIds": ["task_three_way_parcel"],
+      "scheduledWindow": {
+        "startAt": "2026-08-01T18:00:00+09:00",
+        "endAt": "2026-08-01T18:10:00+09:00"
+      },
+      "isSimulation": true
+    },
+    {
+      "schemaVersion": 2,
+      "runId": "run_three_way_001",
+      "requestId": "request_three_way_001",
+      "assignmentId": "assignment_three_way_delivery",
+      "bundleId": "bundle_three_way_delivery",
+      "candidateId": "candidate_three_way_delivery",
+      "taskIds": ["task_three_way_delivery"],
+      "scheduledWindow": {
+        "startAt": "2026-08-01T18:00:00+09:00",
+        "endAt": "2026-08-01T18:10:00+09:00"
+      },
+      "isSimulation": true
+    }
+  ],
+  "responseSequence": [
+    {
+      "taskId": "task_three_way_pickup",
+      "candidateId": "candidate_three_way_pickup",
+      "attempt": 1,
+      "outcome": "accepted"
+    },
+    {
+      "taskId": "task_three_way_parcel",
+      "candidateId": "candidate_three_way_parcel",
+      "attempt": 1,
+      "outcome": "accepted"
+    },
+    {
+      "taskId": "task_three_way_delivery",
+      "candidateId": "candidate_three_way_delivery",
+      "attempt": 1,
+      "outcome": "accepted"
+    }
+  ],
+  "expectedRawToolCorrelations": [
+    {
+      "toolCallId": "call_three_way_bundle",
+      "callSequence": 1,
+      "resultSequence": 2
+    }
+  ],
+  "expectedEventTypes": [
+    "request.created",
+    "plan.created",
+    "task.created",
+    "task.created",
+    "task.created",
+    "safety.checked",
+    "safety.checked",
+    "safety.checked",
+    "sufficiency.checked",
+    "sufficiency.checked",
+    "sufficiency.checked",
+    "bundles.planned",
+    "assignments.planned",
+    "candidates.ranked",
+    "candidates.ranked",
+    "candidates.ranked",
+    "outreach.sent",
+    "outreach.sent",
+    "outreach.sent",
+    "neighbor.replied",
+    "neighbor.replied",
+    "neighbor.replied",
+    "match.confirmed",
+    "match.confirmed",
+    "match.confirmed",
+    "request.completed"
+  ],
+  "expectedFinalResult": {
+    "schemaVersion": 2,
+    "runId": "run_three_way_001",
+    "requestId": "request_three_way_001",
+    "status": "fully_matched",
+    "taskResults": [
+      {
+        "taskId": "task_three_way_pickup",
+        "status": "matched",
+        "matchedCandidateId": "candidate_three_way_pickup",
+        "assignmentId": "assignment_three_way_pickup",
+        "reasonCodes": [],
+        "userMessage": "아이 마중을 도와줄 이웃이 연결됐어요."
+      },
+      {
+        "taskId": "task_three_way_parcel",
+        "status": "matched",
+        "matchedCandidateId": "candidate_three_way_parcel",
+        "assignmentId": "assignment_three_way_parcel",
+        "reasonCodes": [],
+        "userMessage": "택배 수령을 도와줄 이웃이 연결됐어요."
+      },
+      {
+        "taskId": "task_three_way_delivery",
+        "status": "matched",
+        "matchedCandidateId": "candidate_three_way_delivery",
+        "assignmentId": "assignment_three_way_delivery",
+        "reasonCodes": [],
+        "userMessage": "배송 수령을 도와줄 이웃이 연결됐어요."
+      }
+    ],
+    "assignmentResults": [
+      {
+        "schemaVersion": 2,
+        "runId": "run_three_way_001",
+        "requestId": "request_three_way_001",
+        "assignmentId": "assignment_three_way_pickup",
+        "bundleId": "bundle_three_way_pickup",
+        "candidateId": "candidate_three_way_pickup",
+        "taskIds": ["task_three_way_pickup"],
+        "scheduledWindow": {
+          "startAt": "2026-08-01T18:00:00+09:00",
+          "endAt": "2026-08-01T18:10:00+09:00"
+        },
+        "isSimulation": true
+      },
+      {
+        "schemaVersion": 2,
+        "runId": "run_three_way_001",
+        "requestId": "request_three_way_001",
+        "assignmentId": "assignment_three_way_parcel",
+        "bundleId": "bundle_three_way_parcel",
+        "candidateId": "candidate_three_way_parcel",
+        "taskIds": ["task_three_way_parcel"],
+        "scheduledWindow": {
+          "startAt": "2026-08-01T18:00:00+09:00",
+          "endAt": "2026-08-01T18:10:00+09:00"
+        },
+        "isSimulation": true
+      },
+      {
+        "schemaVersion": 2,
+        "runId": "run_three_way_001",
+        "requestId": "request_three_way_001",
+        "assignmentId": "assignment_three_way_delivery",
+        "bundleId": "bundle_three_way_delivery",
+        "candidateId": "candidate_three_way_delivery",
+        "taskIds": ["task_three_way_delivery"],
+        "scheduledWindow": {
+          "startAt": "2026-08-01T18:00:00+09:00",
+          "endAt": "2026-08-01T18:10:00+09:00"
+        },
+        "isSimulation": true
+      }
+    ],
+    "userMessage": "같은 시각에 겹친 세 가지 도움을 이웃 세 명에게 나눠 연결했어요.",
+    "completedAt": "2026-08-01T18:20:00+09:00",
+    "simulatedComponents": ["outreach", "neighbor_response"],
+    "executionBoundary": {
+      "openaiInterpretation": "live",
+      "safetyPolicy": "deterministic",
+      "candidateRanking": "deterministic",
+      "outreach": "simulation",
+      "neighborResponse": "simulation",
+      "matchConfirmation": "simulation"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 node_modules/
 .pnpm-store/
+.DS_Store
 dist/
 coverage/
 .env
@@ -7,5 +8,6 @@ coverage/
 *.local
 .gitignore
 ROLE3_IMPLEMENTATION_PLAN.md
+docs/demo/pitch-outline.md
 playwright-report/
 test-results/

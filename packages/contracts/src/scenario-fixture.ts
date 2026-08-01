@@ -26,7 +26,8 @@ export const DemoScenarioIdSchema = z.enum([
   'first_candidate_accepts',
   'reject_timeout_accept',
   'mixed_risk_partial_match',
-  'multi_helper_split'
+  'multi_helper_split',
+  'three_way_conflict'
 ])
 
 export const ScenarioResponseSchema = z
