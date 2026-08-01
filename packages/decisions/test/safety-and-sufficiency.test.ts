@@ -158,6 +158,12 @@ describe('checkSufficiency', () => {
       { code: 'item_weight', field: 'optionalNotes', message: '물품 무게가 필요합니다.' }
     ]
   }
+  const missingDoorAccess: Task = {
+    ...task,
+    missingInformation: [
+      { code: 'door_access', field: 'optionalNotes', message: 'Door access is unknown.' }
+    ]
+  }
 
   function call(targetTask: Task, availableFacts: readonly AvailableFact[]): CheckSufficiencyCall {
     return {
@@ -183,10 +189,22 @@ describe('checkSufficiency', () => {
     expect(result.ok && result.data.action).toBe('proceed')
   })
 
-  it('해결되지 않은 정보가 있으면 해당 태스크를 보류한다', () => {
-    const result = checkSufficiency(call(missingWeight, []))
+  it('holds only when an explicitly core access fact is unresolved', () => {
+    const result = checkSufficiency(call(missingDoorAccess, []))
 
     expect(result.ok && result.data.status).toBe('insufficient')
-    expect(result.ok && result.data.missingInformation).toEqual(missingWeight.missingInformation)
+    expect(result.ok && result.data.missingInformation).toEqual(
+      missingDoorAccess.missingInformation
+    )
+  })
+
+  it('proceeds once the explicitly core access fact is provided', () => {
+    const result = checkSufficiency(
+      call(missingDoorAccess, [
+        { code: 'door_access', value: 'synthetic lobby instructions', source: 'initial_request' }
+      ])
+    )
+
+    expect(result.ok && result.data.action).toBe('proceed')
   })
 })

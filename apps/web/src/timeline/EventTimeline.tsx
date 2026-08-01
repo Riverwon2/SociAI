@@ -17,6 +17,7 @@ const eventLabels: Record<AgentEvent['type'], string> = {
   'bundles.planned': '작업 묶음 계획',
   'assignments.planned': '이웃 배정 계획',
   'candidates.ranked': '후보 정렬',
+  'bundle.candidates.ranked': '묶음 후보 정렬',
   'outreach.sent': '섭외 발송',
   'neighbor.replied': '이웃 응답',
   'outreach.timed_out': '응답 만료',

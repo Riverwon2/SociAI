@@ -24,5 +24,26 @@ describe('OpenAITaskPlanner', () => {
     expect(receivedRequest?.prompt).toContain('untrusted data')
     expect(receivedRequest?.prompt).toContain('llm_estimated')
     expect(receivedRequest?.prompt).toContain('Do not group tasks')
+    expect(receivedRequest?.prompt).toContain('grocery_carrying')
+  })
+
+  it('does not turn ordinary task logistics into missing-information holds', async () => {
+    let receivedRequest: OpenAIPlanRequest | undefined
+    const client: OpenAIPlanClient = {
+      createStructuredTaskPlan: async (request) => {
+        receivedRequest = request
+        return { tasks: [], summary: 'Plan' }
+      }
+    }
+    const planner = new OpenAITaskPlanner({ client, model: 'gpt-5-mini' })
+
+    await planner.decompose({
+      initialRequest: fixedInitialRequest,
+      runId: 'run-fixed-library-return'
+    })
+
+    expect(receivedRequest?.prompt).toContain(
+      'Do not add missingInformation for ordinary task logistics'
+    )
   })
 })

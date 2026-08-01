@@ -44,4 +44,18 @@ describe('OfficialOpenAIPlanClient', () => {
       client.createStructuredTaskPlan({ model: 'gpt-5-mini', prompt: 'test prompt' })
     ).rejects.toThrow(/valid JSON/)
   })
+
+  it('fails safely when OpenAI returns empty structured text', async () => {
+    const responsesApi: OpenAIResponsesApi = {
+      create: async () => ({ output_text: '   ' })
+    }
+    const client = new OfficialOpenAIPlanClient(
+      { apiKey: 'test-key', model: 'gpt-5-mini' },
+      responsesApi
+    )
+
+    await expect(
+      client.createStructuredTaskPlan({ model: 'gpt-5-mini', prompt: 'test prompt' })
+    ).rejects.toThrow(/did not contain text/)
+  })
 })

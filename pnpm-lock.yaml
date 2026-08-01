@@ -41,6 +41,12 @@ importers:
       '@30-minute-exchange/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@30-minute-exchange/decisions':
+        specifier: workspace:*
+        version: link:../../packages/decisions
+      '@30-minute-exchange/simulator':
+        specifier: workspace:*
+        version: link:../../packages/simulator
       openai:
         specifier: ^5.23.2
         version: 5.23.2(zod@4.4.3)

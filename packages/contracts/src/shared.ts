@@ -9,6 +9,7 @@ export const RunIdSchema = IdentifierSchema
 export const RequestIdSchema = IdentifierSchema
 export const TaskIdSchema = IdentifierSchema
 export const CandidateIdSchema = IdentifierSchema
+export const AssignmentIdSchema = IdentifierSchema
 export const ToolCallIdSchema = IdentifierSchema
 export const EventIdSchema = IdentifierSchema
 

@@ -49,7 +49,11 @@ export const candidate: Candidate = {
   isSimulation: true
 }
 
-export function outreachCall(attempt: 1 | 2 | 3, seed = 'retry-path-v1'): SendOutreachCall {
+export function outreachCall(
+  attempt: 1 | 2 | 3,
+  seed = 'retry-path-v1',
+  candidateId = `candidate_retry_00${attempt}`
+): SendOutreachCall {
   return {
     schemaVersion: SCHEMA_VERSION,
     runId: task.runId,
@@ -57,7 +61,7 @@ export function outreachCall(attempt: 1 | 2 | 3, seed = 'retry-path-v1'): SendOu
     taskId: task.taskId,
     toolCallId: `call_outreach_${attempt}`,
     task,
-    candidate: { ...candidate, candidateId: `candidate_retry_00${attempt}`, rank: attempt },
+    candidate: { ...candidate, candidateId, rank: attempt },
     attempt,
     timeoutMinutes: 10,
     seed

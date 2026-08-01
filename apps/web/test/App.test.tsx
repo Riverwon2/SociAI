@@ -66,16 +66,22 @@ describe('role 3 demo UI', () => {
     expect(screen.getByRole('heading', { name: '도움을 완료했어요' })).toBeInTheDocument()
   })
 
-  it('replays a fixed-date fixture after its calendar date has passed', () => {
-    vi.setSystemTime(new Date('2026-08-02T12:00:00+09:00'))
-    render(<App replayIntervalMs={1} />)
+  // The fixtures carry a frozen calendar day but a request must be scheduled for
+  // the current one. Every replay has to start no matter how far apart the two
+  // drift, or the demo silently dies on a later day.
+  it.each(['2026-08-02', '2026-09-15', '2027-03-01', '2030-12-31'])(
+    'replays a fixed-date fixture on %s, after its calendar date has passed',
+    (localDate) => {
+      vi.setSystemTime(new Date(`${localDate}T12:00:00+09:00`))
+      render(<App replayIntervalMs={1} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
+      fireEvent.click(screen.getByRole('button', { name: /이 요청으로 실행하기/ }))
 
-    expect(
-      screen.queryByRole('heading', { name: '오늘 어떤 도움이 필요하세요?' })
-    ).not.toBeInTheDocument()
-  })
+      expect(
+        screen.queryByRole('heading', { name: '오늘 어떤 도움이 필요하세요?' })
+      ).not.toBeInTheDocument()
+    }
+  )
 
   it('delivers the requester thank-you note to the helper after the mission completes', async () => {
     render(<App replayIntervalMs={1} />)

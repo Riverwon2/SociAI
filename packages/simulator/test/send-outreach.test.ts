@@ -16,8 +16,28 @@ describe('deterministic outreach simulator', () => {
       'timed_out',
       'accepted'
     ])
-    expect(results[1]?.ok && results[1].data.virtualElapsedMinutes).toBe(10)
-    expect(results[1]?.ok && results[1].data.respondedAt).toBeUndefined()
+  })
+
+  it('후보 ID 픽스처는 섭외 순번과 무관하게 같은 결과를 만든다', () => {
+    const results = [
+      sendOutreach(outreachCall(2, 'retry-path-v1', 'candidate-alpha')),
+      sendOutreach(outreachCall(1, 'retry-path-v1', 'candidate-beta'))
+    ]
+
+    expect(results.map((result) => result.ok && result.data.outcome)).toEqual([
+      'rejected',
+      'accepted'
+    ])
+  })
+
+  it('uses the documented legacy ten-minute timeout when that fixture outcome is selected', () => {
+    const result = sendOutreach(outreachCall(1, 'timeout-retry-path-v1', 'candidate-alpha'))
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: { outcome: 'timed_out', virtualElapsedMinutes: 10 }
+    })
+    expect(result.ok && result.data.respondedAt).toBeUndefined()
   })
 
   it.each([

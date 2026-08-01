@@ -93,6 +93,8 @@ function eventPayload(type: AgentEvent['type'], context: BuildContext): Record<s
       return assignmentsPayload(context)
     case 'candidates.ranked':
       return candidatesPayload(context)
+    case 'bundle.candidates.ranked':
+      throw new Error('bundle.candidates.ranked is emitted by a live run, not by a replay fixture')
     case 'outreach.sent':
       return outreachPayload(context)
     case 'neighbor.replied':
@@ -467,6 +469,7 @@ function eventMessage(type: AgentEvent['type']): string {
       'bundles.planned': '한 이웃이 함께 처리할 수 있는 작업끼리 묶었습니다.',
       'assignments.planned': '묶음별로 도와줄 이웃을 배정했습니다.',
       'candidates.ranked': '조건에 맞는 이웃 후보를 정렬했습니다.',
+      'bundle.candidates.ranked': '묶음을 맡을 수 있는 이웃 후보를 정렬했습니다.',
       'outreach.sent': '가장 적합한 이웃에게 도움을 요청했습니다.',
       'neighbor.replied': '이웃의 응답을 확인했습니다.',
       'outreach.timed_out': '가상 10분 동안 응답이 없어 다음 후보를 찾습니다.',

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import type { CandidateProfile, Task } from '@30-minute-exchange/contracts'
+import type { BuildTaskBundlesCall, CandidateProfile, Task } from '@30-minute-exchange/contracts'
 
-import { planBundleAssignments } from '../bundling/plan-bundle-assignments.js'
+import { buildTaskBundles, planBundleAssignments } from '../bundling/plan-bundle-assignments.js'
 
 const requestContext = {
   schemaVersion: 2,
@@ -53,6 +53,60 @@ function candidate(
 }
 
 describe('planBundleAssignments', () => {
+  it('builds bundles from ready tasks before a candidate is selected', () => {
+    const call: BuildTaskBundlesCall = {
+      ...requestContext,
+      toolCallId: 'call_build_bundles_001',
+      tasks: [
+        task('task_delivery', '2026-08-01T18:00:00+09:00', '2026-08-01T18:10:00+09:00', 8),
+        task('task_walk', '2026-08-01T18:10:00+09:00', '2026-08-01T18:30:00+09:00', 15, [
+          'dog_experience'
+        ])
+      ]
+    }
+
+    const result = buildTaskBundles(call)
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        processedTaskIds: ['task_delivery', 'task_walk'],
+        heldTaskIds: [],
+        bundles: [{ taskIds: ['task_delivery', 'task_walk'] }]
+      }
+    })
+  })
+
+  it('holds a ready task with incomplete scheduling metadata without selecting a candidate', () => {
+    const legacyTask: Task = {
+      ...task(
+        'task_missing_metadata',
+        '2026-08-01T18:00:00+09:00',
+        '2026-08-01T18:20:00+09:00',
+        10
+      ),
+      durationSource: undefined,
+      timeSource: undefined,
+      timeCertainty: undefined
+    }
+    const call: BuildTaskBundlesCall = {
+      ...requestContext,
+      toolCallId: 'call_build_bundles_held_001',
+      tasks: [legacyTask]
+    }
+
+    const result = buildTaskBundles(call)
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        bundles: [],
+        heldTaskIds: ['task_missing_metadata'],
+        splitReasonCodes: ['task_schedule_metadata_missing']
+      }
+    })
+  })
+
   it('moves an inherited flexible task into an eligible helper availability window', () => {
     const flexibleTask: Task = {
       ...task('task_flexible', '2026-08-01T17:00:00+09:00', '2026-08-01T21:00:00+09:00', 10),

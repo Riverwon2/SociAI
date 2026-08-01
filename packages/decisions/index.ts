@@ -1,4 +1,5 @@
 export { findCandidates } from './ranking/find-candidates.js'
+export { findCandidatesForBundle } from './ranking/find-candidates-for-bundle.js'
 export { checkSafety } from './safety/check-safety.js'
 export {
   verifyIndoorEntryCondition,
@@ -14,7 +15,7 @@ export {
   type SufficiencyFactCode
 } from './sufficiency/sufficiency-rules.js'
 export { isAvailableFactValid } from './sufficiency/validate-available-fact.js'
-export { planBundleAssignments } from './bundling/plan-bundle-assignments.js'
+export { buildTaskBundles, planBundleAssignments } from './bundling/plan-bundle-assignments.js'
 export {
   planCandidateContact,
   type CandidateContactPlan,
