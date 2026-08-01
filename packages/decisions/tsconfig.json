@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["vitest/globals"]
+  },
+  "include": [
+    "index.ts",
+    "bundling",
+    "policies",
+    "ranking",
+    "safety",
+    "sufficiency",
+    "test",
+    "vitest.config.ts"
+  ]
+}

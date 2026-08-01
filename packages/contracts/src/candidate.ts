@@ -37,6 +37,7 @@ export const CandidateProfileSchema = z
     activityRegion: ActivityRegionSchema,
     activityRadiusKm: z.union([z.literal(1), z.literal(3), z.literal(5)]),
     availabilityWindows: z.array(TimeWindowSchema).min(1).max(20),
+    scheduledCommitments: z.array(TimeWindowSchema).max(20).optional(),
     experienceTags: z.array(z.string().trim().min(1).max(100)).max(30),
     reliabilityRate: z.number().min(0).max(1),
     isSimulation: z.boolean()

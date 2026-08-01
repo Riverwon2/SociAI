@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import happyPath from '../examples/first-candidate-accepts.json' with { type: 'json' }
 import mixedRisk from '../examples/mixed-risk-partial-match.json' with { type: 'json' }
+import multiHelperSplit from '../examples/multi-helper-split.json' with { type: 'json' }
 import retryPath from '../examples/reject-timeout-accept.json' with { type: 'json' }
 import runAccepted from '../examples/run-accepted.json' with { type: 'json' }
 import { DemoScenarioFixtureSchema, RunAcceptedResponseSchema } from '../src/index.js'
@@ -14,7 +15,8 @@ describe('shared scenario JSON fixtures', () => {
   it.each([
     ['first candidate accepts', happyPath, 'first_candidate_accepts'],
     ['reject, timeout, then accept', retryPath, 'reject_timeout_accept'],
-    ['mixed-risk partial match', mixedRisk, 'mixed_risk_partial_match']
+    ['mixed-risk partial match', mixedRisk, 'mixed_risk_partial_match'],
+    ['multiple helpers are split by time', multiHelperSplit, 'multi_helper_split']
   ])('keeps %s contract-valid', (_name, fixture, scenarioId) => {
     const parsed = DemoScenarioFixtureSchema.parse(fixture)
 
@@ -22,6 +24,13 @@ describe('shared scenario JSON fixtures', () => {
     expect(parsed.expectedEventTypes).toContain('sufficiency.checked')
     expect(parsed.expectedEventTypes.at(-1)).toBe('request.completed')
     expect(parsed.expectedRawToolCorrelations.length).toBeGreaterThan(0)
+  })
+
+  it('keeps bundle and assignment records linked in the multiple-helper scenario', () => {
+    const parsed = DemoScenarioFixtureSchema.parse(multiHelperSplit)
+
+    expect(parsed.expectedBundles).toHaveLength(2)
+    expect(parsed.expectedAssignments).toHaveLength(2)
   })
 
   it('rejects fixture references that do not exist', () => {

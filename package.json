@@ -11,7 +11,7 @@
     "test:coverage": "pnpm -r --if-present run test:coverage",
     "test:e2e": "playwright test",
     "typecheck": "pnpm -r --if-present run typecheck",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:coverage && pnpm build"
+    "verify": "pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm test:coverage"
   },
   "engines": {
     "node": ">=22.0.0"

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { AssignmentSchema, TaskBundleSchema } from './assignment.js'
 import { CandidateSchema } from './candidate.js'
 import { FinalResultSchema } from './final-result.js'
 import { InitialRequestSchema } from './initial-request.js'
@@ -27,6 +28,8 @@ export const AgentEventTypeSchema = z.enum([
   'safety.checked',
   'sufficiency.checked',
   'task.held',
+  'bundles.planned',
+  'assignments.planned',
   'candidates.ranked',
   'outreach.sent',
   'neighbor.replied',
@@ -164,6 +167,43 @@ const TaskHeldEventSchema = createEventSchema(
     .strict(),
   true
 )
+const BundlesPlannedEventSchema = createEventSchema(
+  'bundles.planned',
+  z
+    .object({
+      bundles: z.array(TaskBundleSchema).min(1).max(10),
+      splitReasonCodes: z.array(z.string().trim().min(1).max(100)).max(20)
+    })
+    .strict()
+).superRefine((event, context) => {
+  for (const [index, bundle] of event.data.bundles.entries()) {
+    for (const field of ['runId', 'requestId'] as const) {
+      if (event[field] !== bundle[field]) {
+        context.addIssue({
+          code: 'custom',
+          message: `${field} must match the bundle context`,
+          path: ['data', 'bundles', index, field]
+        })
+      }
+    }
+  }
+})
+const AssignmentsPlannedEventSchema = createEventSchema(
+  'assignments.planned',
+  z.object({ assignments: z.array(AssignmentSchema).min(1).max(10) }).strict()
+).superRefine((event, context) => {
+  for (const [index, assignment] of event.data.assignments.entries()) {
+    for (const field of ['runId', 'requestId'] as const) {
+      if (event[field] !== assignment[field]) {
+        context.addIssue({
+          code: 'custom',
+          message: `${field} must match the assignment context`,
+          path: ['data', 'assignments', index, field]
+        })
+      }
+    }
+  }
+})
 const CandidatesRankedEventSchema = createEventSchema(
   'candidates.ranked',
   z
@@ -273,6 +313,8 @@ export const AgentEventSchema = z.discriminatedUnion('type', [
   SafetyCheckedEventSchema,
   SufficiencyCheckedEventSchema,
   TaskHeldEventSchema,
+  BundlesPlannedEventSchema,
+  AssignmentsPlannedEventSchema,
   CandidatesRankedEventSchema,
   OutreachSentEventSchema,
   NeighborRepliedEventSchema,
