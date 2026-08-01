@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import { FindCandidatesResultSchema, type CandidateProfile } from '@30-minute-exchange/contracts'
 
-import { calculateAvailabilityScore } from '../src/ranking/availability-score.js'
-import { calculateDistanceScore } from '../src/ranking/distance-score.js'
-import { calculateExperienceScore } from '../src/ranking/experience-score.js'
-import { findCandidates } from '../src/ranking/find-candidates.js'
+import { calculateAvailabilityScore } from '../ranking/availability-score.js'
+import { calculateDistanceScore } from '../ranking/distance-score.js'
+import { calculateExperienceScore } from '../ranking/experience-score.js'
+import { findCandidates } from '../ranking/find-candidates.js'
 import { candidatesCall, candidateProfiles, task } from './fixtures.js'
 
 describe('candidate scoring', () => {
